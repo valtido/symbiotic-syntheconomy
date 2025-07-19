@@ -1,0 +1,168 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success!",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "submit": "Submit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "confirm": "Confirm",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "refresh": "Refresh"
+  },
+  "navigation": {
+    "home": "Home",
+    "rituals": "Rituals",
+    "create": "Create Ritual",
+    "gallery": "Ritual Gallery",
+    "dao": "DAO Governance",
+    "profile": "Profile",
+    "settings": "Settings",
+    "about": "About",
+    "help": "Help"
+  },
+  "ritual": {
+    "form": {
+      "title": "Create New Ritual",
+      "subtitle": "Share your regenerative ceremony with the global community",
+      "titlePlaceholder": "Enter ritual title",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe your ritual and its purpose...",
+      "bioregion": "Bioregion",
+      "selectBioregion": "Select a bioregion",
+      "culturalReferences": "Cultural References",
+      "culturalReferencePlaceholder": "Add cultural traditions, practices, or references",
+      "ethicalElements": "Ethical Elements",
+      "ethicalElementPlaceholder": "Add ethical principles or values",
+      "spiritualElements": "Spiritual Elements",
+      "spiritualElementPlaceholder": "Add spiritual practices or beliefs",
+      "materials": "Materials",
+      "materialPlaceholder": "List required materials",
+      "steps": "Steps",
+      "step": "Step",
+      "duration": "Duration",
+      "participants": "Participants",
+      "submitting": "Submitting...",
+      "submit": "Submit Ritual"
+    },
+    "status": {
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "pending": "Pending Review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "actions": {
+      "view": "View Details",
+      "edit": "Edit Ritual",
+      "like": "Like",
+      "share": "Share",
+      "download": "Download",
+      "report": "Report"
+    },
+    "bioregion": "Bioregion",
+    "author": "Author",
+    "duration": "Duration",
+    "participants": "Participants",
+    "culturalReferences": "Cultural References",
+    "materials": "Materials",
+    "steps": "Steps",
+    "views": "views",
+    "validation": {
+      "title": "AI Validation Scores",
+      "esep": "Ethical-Spiritual Evaluation",
+      "ceda": "Cultural Expression Detection",
+      "narrative": "Narrative Forensics"
+    }
+  },
+  "bioregions": {
+    "tech-haven": "Tech Haven",
+    "mythic-forest": "Mythic Forest",
+    "isolated-bastion": "Isolated Bastion",
+    "descriptions": {
+      "tech-haven": "Digital innovation and sustainable technology",
+      "mythic-forest": "Ancient wisdom and biodiversity",
+      "isolated-bastion": "Self-sufficiency and community resilience"
+    }
+  },
+  "validation": {
+    "title": "Title must be between 3 and 100 characters",
+    "description": "Description must be between 10 and 1000 characters",
+    "bioregionId": "Please select a bioregion",
+    "culturalReferences": "At least 2 cultural references required",
+    "ethicalElements": "At least 1 ethical element required",
+    "spiritualElements": "At least 1 spiritual element required",
+    "materials": "At least 1 material required",
+    "steps": "At least 3 steps required",
+    "duration": "Duration must be between 5 and 480 minutes",
+    "participants": "Participants must be between 1 and 1000"
+  },
+  "dao": {
+    "title": "DAO Governance",
+    "proposals": "Proposals",
+    "voting": "Voting",
+    "members": "Members",
+    "createProposal": "Create Proposal",
+    "vote": "Vote",
+    "abstain": "Abstain",
+    "quorum": "Quorum",
+    "executed": "Executed",
+    "failed": "Failed",
+    "pending": "Pending"
+  },
+  "profile": {
+    "title": "Profile",
+    "editProfile": "Edit Profile",
+    "myRituals": "My Rituals",
+    "favorites": "Favorites",
+    "settings": "Settings",
+    "logout": "Logout",
+    "wallet": "Wallet",
+    "connect": "Connect Wallet",
+    "disconnect": "Disconnect"
+  },
+  "errors": {
+    "network": "Network error. Please check your connection.",
+    "unauthorized": "You are not authorized to perform this action.",
+    "notFound": "The requested resource was not found.",
+    "validation": "Please check your input and try again.",
+    "server": "Server error. Please try again later.",
+    "wallet": "Wallet connection failed. Please try again."
+  },
+  "success": {
+    "ritualSubmitted": "Ritual submitted successfully!",
+    "ritualUpdated": "Ritual updated successfully!",
+    "profileUpdated": "Profile updated successfully!",
+    "voteSubmitted": "Vote submitted successfully!",
+    "proposalCreated": "Proposal created successfully!"
+  },
+  "ai": {
+    "esep": {
+      "title": "Ethical-Spiritual Evaluation Protocol",
+      "description": "Evaluates the balance between ethical and spiritual elements",
+      "excellent": "Excellent balance",
+      "good": "Good balance",
+      "needsReview": "Needs review"
+    },
+    "ceda": {
+      "title": "Cultural Expression Detection Algorithm",
+      "description": "Detects cultural references and authenticity",
+      "references": "cultural references"
+    },
+    "narrative": {
+      "title": "Narrative Forensics",
+      "description": "Analyzes narrative bias and polarization",
+      "balanced": "Balanced narrative",
+      "polarized": "Polarized narrative"
+    }
+  }
+}
