@@ -1,3 +1,129 @@
+## 🤖 Instruction Log - 2025-07-19T21:53:00.000Z
+
+### 🧠 Agent: ChatGPT
+
+### 📍 Task: UI Fix Commit via Cursor
+
+---
+
+Cursor, please perform the following tasks in the `symbiotic-syntheconomy` repo to resolve missing components and unblock the UI preview.
+
+---
+
+### ✅ 1. Generate Missing MUI Components
+
+#### Create `frontend/src/components/RitualSubmissionForm.tsx`:
+
+```tsx
+'use client';
+
+import {
+  Card,
+  CardContent,
+  Typography,
+  TextField,
+  Button,
+  Box,
+} from '@mui/material';
+import { useState } from 'react';
+
+export function RitualSubmissionForm() {
+  const [ritualName, setRitualName] = useState('');
+  const [details, setDetails] = useState('');
+
+  const handleSubmit = () => {
+    console.log('Submitted:', { ritualName, details });
+  };
+
+  return (
+    <Card sx={{ p: 3, mb: 4 }}>
+      <CardContent>
+        <Typography variant='h6' gutterBottom>
+          Submit a Ritual
+        </Typography>
+        <Box display='flex' flexDirection='column' gap={2}>
+          <TextField
+            label='Ritual Name'
+            value={ritualName}
+            onChange={(e) => setRitualName(e.target.value)}
+          />
+          <TextField
+            label='Details'
+            multiline
+            rows={4}
+            value={details}
+            onChange={(e) => setDetails(e.target.value)}
+          />
+          <Button variant='contained' onClick={handleSubmit}>
+            Submit
+          </Button>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+#### Create `frontend/src/components/RitualDashboard.tsx`:
+
+```tsx
+'use client';
+
+import { Card, CardContent, Typography, Box } from '@mui/material';
+
+export function RitualDashboard() {
+  return (
+    <Card sx={{ p: 3, mb: 4 }}>
+      <CardContent>
+        <Typography variant='h6' gutterBottom>
+          Ritual Dashboard
+        </Typography>
+        <Box>
+          <Typography>
+            No rituals yet. This will populate from chain state.
+          </Typography>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+---
+
+### 🧩 2. Ensure Imports in `frontend/src/app/page.tsx`
+
+```tsx
+import { RitualSubmissionForm } from '@/components/RitualSubmissionForm';
+import { RitualDashboard } from '@/components/RitualDashboard';
+
+<RitualSubmissionForm />
+<RitualDashboard />
+```
+
+---
+
+### 📦 3. Install Frontend Dependencies
+
+```bash
+cd frontend
+npm install @mui/material @emotion/react @emotion/styled
+```
+
+---
+
+### 🚀 4. Commit & Push to Git
+
+```bash
+git add frontend/src/components/*.tsx frontend/src/app/page.tsx
+git commit -m "🌿 Add MUI-based ritual form and dashboard components"
+git push origin main
+```
+
+---
+
+Please confirm once completed so we can verify and resume simulation.
+
 ## 🧠 Phase II Sync Update — 2025-07-19T20:01 UTC
 
 ### ✅ AI Log Integration Complete
