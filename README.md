@@ -34,6 +34,97 @@ npm run build
 npm run deploy:contracts
 ```
 
+## 🤖 AI Agent Coordination
+
+### Overview
+
+This project uses AI agent coordination via GitHub webhooks and shared logs to maintain consistency across multiple AI assistants (Grok, Cursor AI, etc.).
+
+### Coordination Protocol
+
+#### 1. **Sync Log Management**
+
+- **File**: `ai-sync-log.md` in project root
+- **Purpose**: Central coordination log for all AI agents
+- **Format**: Markdown with timestamps and agent identification
+- **Updates**: All deployment events, configuration changes, and status updates
+
+#### 2. **GitHub Webhook Integration**
+
+- **Endpoint**: `https://grc-webhook.loca.lt/webhook/github`
+- **Events**: Repository pushes trigger coordination events
+- **Security**: Signature verification with environment variable `GITHUB_WEBHOOK_SECRET`
+- **Status**: Real-time AI agent synchronization
+
+#### 3. **Agent Communication Flow**
+
+```
+Repository Change → GitHub Webhook → Backend API → ai-sync-log.md → Agent Sync
+```
+
+#### 4. **AI Agent Setup Instructions**
+
+**For Grok AI:**
+
+- Monitor `ai-sync-log.md` via GitHub API
+- Consume updates via repository webhook events
+- Maintain context through shared log entries
+
+**For Cursor AI:**
+
+- Local filesystem watcher for `ai-sync-log.md`
+- Direct access to project files and deployment logs
+- Real-time coordination via webhook endpoint
+
+**For Other AI Agents:**
+
+- Subscribe to repository webhook events
+- Parse `ai-sync-log.md` for current project state
+- Update coordination log with agent-specific actions
+
+#### 5. **Coordination Commands**
+
+```bash
+# Check current AI coordination status
+curl http://localhost:3001/webhook/github/status
+
+# View latest sync log
+cat ai-sync-log.md
+
+# Test webhook manually
+curl -X POST http://localhost:3001/webhook/github \
+  -H "Content-Type: application/json" \
+  -d '{"test": "ai-coordination"}'
+```
+
+#### 6. **Environment Variables**
+
+```bash
+# Required for AI coordination
+GITHUB_WEBHOOK_SECRET=your_webhook_secret_here
+GITHUB_TOKEN=your_github_pat_token
+```
+
+#### 7. **Troubleshooting AI Coordination**
+
+**Webhook Not Receiving Events:**
+
+- Verify public URL accessibility
+- Check webhook secret configuration
+- Ensure repository permissions
+
+**Agent Sync Issues:**
+
+- Validate `ai-sync-log.md` format
+- Check webhook endpoint health
+- Verify environment variables
+
+**Local Development:**
+
+- Use localtunnel for public webhook URL
+- Monitor webhook logs in backend console
+- Test with manual webhook triggers
+
 ## 📁 Project Structure
 
 ```
