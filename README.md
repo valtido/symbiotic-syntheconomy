@@ -97,3 +97,5 @@ MIT License - See LICENSE file for details.
 **Lead Developer**: Valtid Caushi
 **Version**: 1.0.0
 **Status**: Development
+
+Hooks ready.
