@@ -6,6 +6,7 @@ import RitualSubmissionForm from '../components/RitualSubmissionForm';
 import BioregionSelector from '../components/BioregionSelector';
 import ValidationResults from '../components/ValidationResults';
 import Header from '../components/Header';
+import RitualDashboard from '../components/RitualDashboard';
 
 export default function Home() {
   const [selectedBioregion, setSelectedBioregion] = useState<string>('');
@@ -82,6 +83,7 @@ export default function Home() {
             harmony.
           </p>
         </motion.div>
+        <RitualDashboard />
 
         <div className='grid lg:grid-cols-2 gap-8 max-w-7xl mx-auto'>
           {/* Left Column - Bioregion Selection */}
