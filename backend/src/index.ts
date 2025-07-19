@@ -10,6 +10,7 @@ import { config } from 'dotenv';
 import { ritualRoutes } from './routes/ritualRoutes';
 import { bioregionRoutes } from './routes/bioregionRoutes';
 import { daoRoutes } from './routes/daoRoutes';
+import githubWebhookRoutes from './endpoints/githubWebhook';
 
 // Import services
 import { DatabaseService } from './services/DatabaseService';
@@ -81,6 +82,7 @@ async function registerRoutes() {
   await fastify.register(ritualRoutes, { prefix: '/api/v1/rituals' });
   await fastify.register(bioregionRoutes, { prefix: '/api/v1/bioregions' });
   await fastify.register(daoRoutes, { prefix: '/api/v1/dao' });
+  await fastify.register(githubWebhookRoutes);
 }
 
 // Initialize services

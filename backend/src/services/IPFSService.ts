@@ -1,4 +1,6 @@
-import { create } from 'ipfs-http-client';
+// Mock IPFS implementation for development
+// In production, you would use a real IPFS client
+let create: any = null;
 
 export interface IPFSMetadata {
   name: string;
@@ -37,25 +39,38 @@ export class IPFSService {
   private isConnected: boolean = false;
 
   constructor() {
-    // Initialize IPFS client
-    const ipfsConfig = {
-      host: process.env.IPFS_HOST || 'ipfs.infura.io',
-      port: parseInt(process.env.IPFS_PORT || '5001'),
-      protocol: process.env.IPFS_PROTOCOL || 'https',
-      headers: {
-        authorization: process.env.IPFS_AUTH_TOKEN
-          ? `Basic ${process.env.IPFS_AUTH_TOKEN}`
-          : undefined,
+    // Mock IPFS implementation for development
+    console.log('🔧 Using mock IPFS implementation for development');
+    this.isConnected = true;
+
+    // Mock IPFS client
+    this.ipfs = {
+      add: async (data: any) => {
+        const mockHash = `Qm${Math.random()
+          .toString(36)
+          .substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+        return {
+          cid: { toString: () => mockHash },
+          size:
+            typeof data === 'string'
+              ? data.length
+              : JSON.stringify(data).length,
+        };
+      },
+      cat: async function* (hash: string) {
+        yield Buffer.from('{"mock": "data"}');
+      },
+      pin: {
+        add: async (hash: string) => {
+          console.log('Mock pinning:', hash);
+        },
+      },
+      files: {
+        stat: async (path: string) => {
+          return { cid: path.split('/').pop() };
+        },
       },
     };
-
-    try {
-      this.ipfs = create(ipfsConfig);
-      this.isConnected = true;
-    } catch (error) {
-      console.error('Failed to initialize IPFS client:', error);
-      this.isConnected = false;
-    }
   }
 
   /**
@@ -199,7 +214,7 @@ export class IPFSService {
    * Get IPFS gateway URL for content
    */
   getGatewayUrl(hash: string): string {
-    const gateway = process.env.IPFS_GATEWAY || 'https://ipfs.io/ipfs';
+    const gateway = process.env['IPFS_GATEWAY'] || 'https://ipfs.io/ipfs';
     return `${gateway}/${hash}`;
   }
 
