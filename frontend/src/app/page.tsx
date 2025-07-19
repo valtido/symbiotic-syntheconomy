@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import RitualSubmissionForm from '../components/RitualSubmissionForm';
+import { RitualSubmissionForm } from '../components/RitualSubmissionForm';
 import BioregionSelector from '../components/BioregionSelector';
 import ValidationResults from '../components/ValidationResults';
 import Header from '../components/Header';
-import RitualDashboard from '../components/RitualDashboard';
+import { RitualDashboard } from '../components/RitualDashboard';
 
 export default function Home() {
   const [selectedBioregion, setSelectedBioregion] = useState<string>('');
@@ -146,10 +146,7 @@ export default function Home() {
               <h2 className='text-2xl font-semibold text-gray-900 mb-4'>
                 Submit Your Ritual
               </h2>
-              <RitualSubmissionForm
-                onSubmit={handleRitualSubmission}
-                onValidationChange={() => {}}
-              />
+              <RitualSubmissionForm />
             </div>
 
             {submissionResult && (
