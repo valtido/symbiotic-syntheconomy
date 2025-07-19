@@ -1,0 +1,19 @@
+name: Sync AI Log
+on:
+  push:
+    branches: [main]
+jobs:
+  sync-log:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run log:append
+      - run: git config user.name "AI Sync Bot"
+      - run: git config user.email "ai-sync@example.com"
+      - run: git add ai-sync-log.md
+      - run: git commit -m "🤖 Auto-update AI sync log"
+      - run: git push
