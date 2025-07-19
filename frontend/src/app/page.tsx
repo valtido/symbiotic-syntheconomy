@@ -2,11 +2,10 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { RitualSubmissionForm } from '@/components/RitualSubmissionForm';
-import { BioregionSelector } from '@/components/BioregionSelector';
-import { ValidationResults } from '@/components/ValidationResults';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
+import RitualSubmissionForm from '../components/RitualSubmissionForm';
+import BioregionSelector from '../components/BioregionSelector';
+import ValidationResults from '../components/ValidationResults';
+import Header from '../components/Header';
 
 export default function Home() {
   const [selectedBioregion, setSelectedBioregion] = useState<string>('');
@@ -97,9 +96,8 @@ export default function Home() {
                 Choose Your Bioregion
               </h2>
               <BioregionSelector
-                bioregions={bioregions}
                 selectedBioregion={selectedBioregion}
-                onSelectBioregion={setSelectedBioregion}
+                onSelect={setSelectedBioregion}
               />
             </div>
 
@@ -147,9 +145,8 @@ export default function Home() {
                 Submit Your Ritual
               </h2>
               <RitualSubmissionForm
-                selectedBioregion={selectedBioregion}
                 onSubmit={handleRitualSubmission}
-                isSubmitting={isSubmitting}
+                onValidationChange={() => {}}
               />
             </div>
 
@@ -215,8 +212,6 @@ export default function Home() {
           </div>
         </motion.div>
       </main>
-
-      <Footer />
     </div>
   );
 }

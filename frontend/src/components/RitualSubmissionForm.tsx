@@ -53,7 +53,7 @@ const RitualSubmissionForm: React.FC<RitualSubmissionFormProps> = ({
     { id: 'isolated-bastion', name: 'Isolated Bastion' },
   ];
 
-  const validationRules = {
+  const validationRules: Record<string, (value: any) => boolean> = {
     title: (value: string) => value.length >= 3 && value.length <= 100,
     description: (value: string) => value.length >= 10 && value.length <= 1000,
     bioregionId: (value: string) => value.length > 0,
