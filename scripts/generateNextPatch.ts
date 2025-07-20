@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { execSync } from 'child_process';
+import { sendDiscordNotification } from './notifyDiscord';
 
 const PATCH_FILE = `patches/generated-${Date.now()}.patch`;
 
@@ -13,7 +14,7 @@ function ensureDirectoryExists(path: string) {
   }
 }
 
-function generatePatch() {
+async function generatePatch() {
   ensureDirectoryExists('patches');
 
   try {
@@ -30,6 +31,10 @@ function generatePatch() {
     run(`git commit -m "🤖 Auto-patch: ${new Date().toISOString()}"`);
     run(`git push origin main`);
     console.log('🚀 Patch committed and pushed.');
+
+    await sendDiscordNotification(
+      `📦 New Patch Generated\n\`${PATCH_FILE}\`\nTriggered by: \`ai-sync-log.md\`\nStatus: ✅ Committed & pushed`,
+    );
   } catch (error) {
     console.error('❌ Error during patch generation or push:', error);
   }
