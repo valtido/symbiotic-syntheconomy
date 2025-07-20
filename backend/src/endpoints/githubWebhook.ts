@@ -1,37 +1,36 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import crypto from 'crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import crypto from 'crypto';
 
 const execAsync = promisify(exec);
 
 interface GitHubWebhookPayload {
   ref: string;
+  before: string;
+  after: string;
   repository: {
     name: string;
     full_name: string;
-    clone_url: string;
   };
   commits: Array<{
     id: string;
     message: string;
-    added: string[];
-    modified: string[];
-    removed: string[];
-  }>;
-  head_commit: {
-    id: string;
-    message: string;
-    timestamp: string;
     author: {
       name: string;
       email: string;
     };
+    added: string[];
+    modified: string[];
+    removed: string[];
+  }>;
+  sender: {
+    login: string;
   };
 }
 
 export default async function githubWebhookRoutes(fastify: FastifyInstance) {
-  // GitHub webhook endpoint
+  // Webhook endpoint for GitHub push events
   fastify.post(
     '/webhook/github',
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -39,259 +38,132 @@ export default async function githubWebhookRoutes(fastify: FastifyInstance) {
         const payload = request.body as GitHubWebhookPayload;
         const signature = request.headers['x-hub-signature-256'] as string;
 
-        // Verify webhook signature
-        if (!verifyGitHubSignature(request.body, signature)) {
-          return reply.status(401).send({ error: 'Invalid signature' });
+        // Verify webhook signature (optional but recommended)
+        if (process.env.GITHUB_WEBHOOK_SECRET) {
+          const expectedSignature = `sha256=${crypto
+            .createHmac('sha256', process.env.GITHUB_WEBHOOK_SECRET)
+            .update(JSON.stringify(payload))
+            .digest('hex')}`;
+
+          if (signature !== expectedSignature) {
+            fastify.log.warn('Invalid webhook signature');
+            return reply.status(401).send({ error: 'Invalid signature' });
+          }
         }
 
-        // Check if this is a push to main branch
+        // Only process push events to main branch
         if (payload.ref !== 'refs/heads/main') {
-          return reply
-            .status(200)
-            .send({ message: 'Ignored - not main branch' });
+          return reply.send({ message: 'Ignored non-main branch push' });
         }
 
-        // Check if ai-sync-log.md was modified
-        const aiSyncLogModified = payload.commits.some(
-          (commit) =>
-            commit.modified.includes('ai-sync-log.md') ||
-            commit.added.includes('ai-sync-log.md'),
+        fastify.log.info(
+          `GitHub webhook received: ${payload.commits.length} commits from ${payload.sender.login}`,
         );
 
-        if (!aiSyncLogModified) {
-          return reply
-            .status(200)
-            .send({ message: 'Ignored - ai-sync-log.md not modified' });
+        // Check if any commits are from AI agents
+        const aiAgentCommits = payload.commits.filter((commit) => {
+          const isAIAgent =
+            commit.author.name.includes('Cursor') ||
+            commit.author.name.includes('Grok') ||
+            commit.author.name.includes('AI') ||
+            commit.author.email.includes('cursor') ||
+            commit.author.email.includes('grok') ||
+            commit.message.includes('[AI]') ||
+            commit.message.includes('🤖') ||
+            commit.message.includes('AI Agent');
+
+          return isAIAgent;
+        });
+
+        if (aiAgentCommits.length === 0) {
+          fastify.log.info('No AI agent commits detected');
+          return reply.send({ message: 'No AI agent commits found' });
         }
 
-        console.log('🔄 GitHub webhook triggered - ai-sync-log.md updated');
+        fastify.log.info(
+          `Found ${aiAgentCommits.length} AI agent commits, triggering patch generation`,
+        );
 
-        // Trigger automated response
-        await handleAISyncLogUpdate(payload);
+        // Trigger patch generation for AI agent commits
+        await triggerAIPatchGeneration(fastify, aiAgentCommits);
 
-        return reply.status(200).send({
+        return reply.send({
           success: true,
-          message: 'Webhook processed successfully',
-          action: 'ai-sync-log-updated',
+          message: `Processed ${aiAgentCommits.length} AI agent commits`,
+          commits: aiAgentCommits.map((c) => ({
+            id: c.id,
+            message: c.message,
+          })),
         });
       } catch (error) {
-        console.error('❌ GitHub webhook error:', error);
-        return reply.status(500).send({
-          error: 'Webhook processing failed',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        });
+        fastify.log.error('GitHub webhook error:', error);
+        return reply.status(500).send({ error: 'Internal server error' });
       }
     },
   );
 
-  // Health check endpoint
-  fastify.get(
-    '/webhook/health',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      return reply.status(200).send({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        service: 'github-webhook',
-      });
-    },
-  );
-
-  // Manual trigger endpoint
+  // Manual trigger endpoint for testing
   fastify.post(
     '/webhook/trigger-sync',
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
-        const { action, data } = request.body as any;
+        const { action } = request.body as { action: string };
 
-        console.log('🔄 Manual sync trigger:', action);
+        if (action === 'test') {
+          fastify.log.info('Manual sync trigger received');
+          await triggerAIPatchGeneration(fastify, []);
+          return reply.send({
+            success: true,
+            message: 'Manual sync triggered',
+          });
+        }
 
-        await handleAISyncLogUpdate({
-          ref: 'refs/heads/main',
-          repository: {
-            name: 'symbiotic-syntheconomy-ai-coordination',
-            full_name: 'valtido/symbiotic-syntheconomy-ai-coordination',
-            clone_url:
-              'https://github.com/valtido/symbiotic-syntheconomy-ai-coordination.git',
-          },
-          commits: [],
-          head_commit: {
-            id: 'manual-trigger',
-            message: `Manual trigger: ${action}`,
-            timestamp: new Date().toISOString(),
-            author: { name: 'Cursor AI', email: 'cursor@grc.ai' },
-          },
-        });
-
-        return reply.status(200).send({
-          success: true,
-          message: 'Manual sync triggered successfully',
-          action,
-        });
+        return reply.status(400).send({ error: 'Invalid action' });
       } catch (error) {
-        console.error('❌ Manual trigger error:', error);
-        return reply.status(500).send({
-          error: 'Manual trigger failed',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        });
+        fastify.log.error('Manual sync error:', error);
+        return reply.status(500).send({ error: 'Internal server error' });
       }
     },
   );
 }
 
-// Verify GitHub webhook signature
-function verifyGitHubSignature(payload: any, signature: string): boolean {
-  const secret = process.env['GH_WEBHOOK_SECRET'];
-  if (!secret || secret === 'your_github_webhook_secret_here') {
-    console.warn(
-      '⚠️ GH_WEBHOOK_SECRET not configured - running in development mode',
-    );
-    console.warn('📝 To configure: Set GH_WEBHOOK_SECRET in your .env file');
-    console.warn(
-      '🔗 GitHub webhook setup: https://github.com/settings/webhooks',
-    );
-    return true; // Allow in development
-  }
-
-  const expectedSignature = `sha256=${crypto
-    .createHmac('sha256', secret)
-    .update(JSON.stringify(payload))
-    .digest('hex')}`;
-
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature),
-  );
-}
-
-// Handle AI sync log updates
-async function handleAISyncLogUpdate(payload: GitHubWebhookPayload) {
+async function triggerAIPatchGeneration(
+  fastify: FastifyInstance,
+  commits: any[],
+) {
   try {
-    console.log('🤖 Processing AI sync log update...');
+    fastify.log.info('Starting AI patch generation...');
 
-    // 1. Pull latest changes
+    // Pull latest changes
     await execAsync('git pull origin main');
-    console.log('✅ Git pull completed');
+    fastify.log.info('Git pull completed');
 
-    // 2. Read updated ai-sync-log.md
-    const fs = require('fs').promises;
-    const path = require('path');
-    const logPath = path.join(__dirname, '../../..', 'ai-sync-log.md');
-    const logContent = await fs.readFile(logPath, 'utf-8');
+    // Run the AI patch generation
+    const { stdout, stderr } = await execAsync('npm run ai:next-patch');
 
-    // 3. Parse log for actions
-    const actions = parseAISyncLog(logContent);
-
-    // 4. Execute actions based on log content
-    for (const action of actions) {
-      await executeAction(action);
+    if (stderr) {
+      fastify.log.warn('AI patch generation stderr:', stderr);
     }
 
-    // 5. Update local status
-    await updateLocalStatus(payload);
+    fastify.log.info('AI patch generation completed:', stdout);
 
-    console.log('✅ AI sync log processing completed');
+    // Check if any patches were generated
+    const { stdout: patchStatus } = await execAsync('git status --porcelain');
+
+    if (patchStatus.trim()) {
+      fastify.log.info('Patches detected, committing and pushing...');
+
+      // Commit and push patches
+      await execAsync('git add .');
+      await execAsync('git commit -m "🤖 Auto-patch: AI agent sync [webhook]"');
+      await execAsync('git push origin main');
+
+      fastify.log.info('Patches committed and pushed successfully');
+    } else {
+      fastify.log.info('No patches generated');
+    }
   } catch (error) {
-    console.error('❌ Error processing AI sync log:', error);
+    fastify.log.error('Error in AI patch generation:', error);
     throw error;
   }
-}
-
-// Parse AI sync log for actions
-function parseAISyncLog(content: string): Array<{ type: string; data: any }> {
-  const actions: Array<{ type: string; data: any }> = [];
-
-  // Look for specific patterns in the log
-  if (content.includes('Phase II: Deployment Complete')) {
-    actions.push({
-      type: 'deployment_complete',
-      data: { phase: 'II', status: 'complete' },
-    });
-  }
-
-  if (content.includes('Cursor to initiate ritual UI test')) {
-    actions.push({
-      type: 'initiate_ui_test',
-      data: { component: 'ritual-ui' },
-    });
-  }
-
-  if (content.includes('Grok Not Syncing')) {
-    actions.push({
-      type: 'grok_status',
-      data: { status: 'unresponsive' },
-    });
-  }
-
-  return actions;
-}
-
-// Execute actions based on log content
-async function executeAction(action: { type: string; data: any }) {
-  console.log(`🚀 Executing action: ${action.type}`);
-
-  switch (action.type) {
-    case 'deployment_complete':
-      await handleDeploymentComplete(action.data);
-      break;
-
-    case 'initiate_ui_test':
-      await handleInitiateUITest(action.data);
-      break;
-
-    case 'grok_status':
-      await handleGrokStatus(action.data);
-      break;
-
-    default:
-      console.log(`⚠️ Unknown action type: ${action.type}`);
-  }
-}
-
-// Handle deployment complete action
-async function handleDeploymentComplete(data: any) {
-  console.log('🎉 Deployment complete - updating local configuration');
-
-  // Update environment variables with deployed contract addresses
-  // This would typically update .env files or configuration
-  console.log('✅ Local configuration updated');
-}
-
-// Handle UI test initiation
-async function handleInitiateUITest(data: any) {
-  console.log('🧪 Initiating ritual UI test...');
-
-  // Start frontend development server
-  try {
-    await execAsync('cd frontend && npm run dev');
-    console.log('✅ Frontend dev server started');
-  } catch (error) {
-    console.error('❌ Failed to start frontend:', error);
-  }
-}
-
-// Handle Grok status
-async function handleGrokStatus(data: any) {
-  console.log('🤖 Grok status update:', data.status);
-
-  if (data.status === 'unresponsive') {
-    console.log('⚠️ Grok is unresponsive - continuing without Grok sync');
-  }
-}
-
-// Update local status
-async function updateLocalStatus(payload: GitHubWebhookPayload) {
-  const status = {
-    lastSync: new Date().toISOString(),
-    commitId: payload.head_commit.id,
-    commitMessage: payload.head_commit.message,
-    author: payload.head_commit.author.name,
-  };
-
-  // Save status to local file
-  const fs = require('fs').promises;
-  const path = require('path');
-  const statusPath = path.join(__dirname, '../../..', 'log/sync-status.json');
-  await fs.writeFile(statusPath, JSON.stringify(status, null, 2));
-
-  console.log('📝 Local sync status updated');
 }

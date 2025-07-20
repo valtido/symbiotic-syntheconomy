@@ -32,17 +32,28 @@ absolutePaths.forEach((filePath) => {
 });
 
 function runAgentPatch() {
-  console.log('⚙️ Running: npm run ai:next-patch');
+  console.log('⚙️ Running: git pull && npm run ai:next-patch');
 
-  exec('npm run ai:next-patch', (err, stdout, stderr) => {
-    if (err) {
-      console.error(`❌ Patch generation failed:\n${err.message}`);
+  // First pull latest changes to detect remote AI agent commits
+  exec('git pull origin main', (pullErr, pullStdout, pullStderr) => {
+    if (pullErr) {
+      console.error(`❌ Git pull failed:\n${pullErr.message}`);
       return;
     }
-    if (stderr) console.error(`⚠️ STDERR:\n${stderr}`);
-    if (stdout) console.log(`✅ Patch output:\n${stdout}`);
+    if (pullStderr) console.log(`ℹ️ Git pull stderr:\n${pullStderr}`);
+    if (pullStdout) console.log(`✅ Git pull output:\n${pullStdout}`);
 
-    checkForGitChanges();
+    // Then run the AI patch generation
+    exec('npm run ai:next-patch', (err, stdout, stderr) => {
+      if (err) {
+        console.error(`❌ Patch generation failed:\n${err.message}`);
+        return;
+      }
+      if (stderr) console.error(`⚠️ STDERR:\n${stderr}`);
+      if (stdout) console.log(`✅ Patch output:\n${stdout}`);
+
+      checkForGitChanges();
+    });
   });
 }
 

@@ -1,114 +1,171 @@
-# GitHub Webhook Setup Guide
+# GitHub Webhook Setup for AI Agent Detection
 
-## Current Status
+## 🎯 **Problem Solved**
 
-- ✅ Backend webhook endpoint: `/webhook/trigger-sync`
-- ✅ Manual trigger working: `curl -X POST http://localhost:3002/webhook/trigger-sync`
-- ✅ Path issues fixed in backend code
-- 🔧 Need to expose webhook publicly
+The file watcher was "blind" to AI agent commits because:
 
-## Step 1: Expose Webhook Publicly
+- **AI agents (Cursor, Grok)** push directly to GitHub
+- **Local file watcher** only sees local file changes
+- **Result**: No auto-patches generated for AI agent work
 
-### Option A: Using Localtunnel (Recommended for Development)
+## 🚀 **Solution: Dual Detection System**
+
+### **1. Enhanced File Watcher** (Local Detection)
+
+- **Pulls before checking**: `git pull origin main` before patch generation
+- **Detects remote changes**: Can now see AI agent commits
+- **Triggers patches**: Generates patches for remote AI work
+
+### **2. GitHub Webhook** (Real-time Detection)
+
+- **Listens for push events**: Detects commits as they happen
+- **AI agent filtering**: Identifies commits from Cursor, Grok, etc.
+- **Immediate response**: Triggers patch generation instantly
+- **More reliable**: Works even if file watcher is down
+
+## 🔧 **Setup Instructions**
+
+### **Step 1: Configure Environment Variables**
+
+Add to your `.env` file:
 
 ```bash
-# In a new terminal window
-lt --port 3002 --subdomain grc-webhook
+# GitHub Webhook Secret (optional but recommended)
+GITHUB_WEBHOOK_SECRET=your_webhook_secret_here
+
+# Backend URL for webhook
+BACKEND_URL=http://localhost:3006
 ```
 
-This will give you a public URL like: `https://grc-webhook.loca.lt`
+### **Step 2: Set Up GitHub Webhook**
 
-### Option B: Using ngrok (Alternative)
+1. **Go to your repository**: https://github.com/valtido/symbiotic-syntheconomy
+2. **Settings → Webhooks → Add webhook**
+3. **Configure webhook**:
+   - **Payload URL**: `http://your-domain.com/webhook/github` (or ngrok URL for local testing)
+   - **Content type**: `application/json`
+   - **Secret**: Same as `GITHUB_WEBHOOK_SECRET` in your .env
+   - **Events**: Select "Just the push event"
+   - **Active**: ✅ Checked
 
-```bash
-# Install ngrok if not already installed
-# Then run:
-ngrok http 3001
-```
+### **Step 3: Test the Webhook**
 
-## Step 2: Configure GitHub Webhook
-
-1. Go to your GitHub repository: https://github.com/valtido/symbiotic-syntheconomy
-2. Click on "Settings" tab
-3. Click on "Webhooks" in the left sidebar
-4. Click "Add webhook"
-5. Configure the webhook:
-
-### Webhook Configuration:
-
-- **Payload URL**: `https://grc-webhook.loca.lt/webhook/trigger-sync` (or your ngrok URL)
-- **Content type**: `application/json`
-- **Secret**: Create a random secret (e.g., `grc-webhook-secret-2025`)
-- **Events**: Select "Just the push event"
-- **Active**: ✅ Checked
-
-### Advanced Settings:
-
-- **SSL verification**: ✅ Enabled
-- **Redeliver**: Available for testing
-
-## Step 3: Update Environment Variables
-
-Add the webhook secret to your `.env` file:
+**Manual Test**:
 
 ```bash
-GH_WEBHOOK_SECRET=your_webhook_secret_here
-```
-
-## Step 4: Test the Webhook
-
-1. Make a change to the repository (e.g., update ai-sync-log.md)
-2. Commit and push the change
-3. Check the webhook delivery in GitHub:
-   - Go to Settings > Webhooks
-   - Click on your webhook
-   - Click "Recent Deliveries"
-   - Check the response
-
-## Step 5: Monitor Webhook Activity
-
-Check the backend logs for webhook activity:
-
-```bash
-# The backend will log webhook events like:
-# 🔄 Manual sync trigger: test
-# 🤖 Processing AI sync log update...
-# ✅ Git pull completed
-# ✅ AI sync log processing completed
-```
-
-## Troubleshooting
-
-### Common Issues:
-
-1. **Webhook not receiving events**: Check the payload URL is accessible
-2. **SSL errors**: Ensure the tunnel URL uses HTTPS
-3. **Secret verification fails**: Check GH_WEBHOOK_SECRET matches
-4. **File not found**: Ensure ai-sync-log.md exists in the root directory
-
-### Testing Commands:
-
-```bash
-# Test manual trigger
-curl -X POST http://localhost:3001/webhook/trigger-sync \
+curl -X POST http://localhost:3006/webhook/trigger-sync \
   -H "Content-Type: application/json" \
-  -d '{"action": "test", "data": {}}'
-
-# Check webhook endpoint
-curl -s http://localhost:3001/webhook/trigger-sync
-
-# Test with GitHub signature (for production)
-curl -X POST http://localhost:3001/webhook/trigger-sync \
-  -H "Content-Type: application/json" \
-  -H "X-Hub-Signature-256: sha256=..." \
-  -d '{"ref": "refs/heads/main", "repository": {...}}'
+  -d '{"action": "test"}'
 ```
 
-## Production Deployment
+**GitHub Test**:
 
-For production, replace the tunnel URL with your actual domain:
+1. Make a commit with AI agent signature
+2. Push to GitHub
+3. Check backend logs for webhook processing
 
-- **Payload URL**: `https://yourdomain.com/webhook/trigger-sync`
-- **SSL**: Ensure proper SSL certificates
-- **Security**: Use strong webhook secrets
-- **Monitoring**: Set up webhook delivery monitoring
+## 🤖 **AI Agent Detection**
+
+The webhook detects AI agents by:
+
+### **Author Name Patterns**:
+
+- `Cursor`
+- `Grok`
+- `AI`
+
+### **Email Patterns**:
+
+- `cursor@`
+- `grok@`
+
+### **Commit Message Patterns**:
+
+- `[AI]`
+- `🤖`
+- `AI Agent`
+
+## 📊 **How It Works**
+
+### **File Watcher Flow**:
+
+```
+1. File change detected
+2. git pull origin main ← NEW: Pull remote changes
+3. npm run ai:next-patch
+4. Commit and push patches
+```
+
+### **Webhook Flow**:
+
+```
+1. GitHub push event
+2. Check if AI agent commit
+3. git pull origin main
+4. npm run ai:next-patch
+5. Commit and push patches
+```
+
+## 🔍 **Monitoring**
+
+### **Backend Logs**:
+
+```bash
+# Watch webhook activity
+tail -f log/backend.log | grep webhook
+```
+
+### **File Watcher Logs**:
+
+```bash
+# Watch file watcher activity
+tail -f log/fileWatcher.log
+```
+
+### **Test Commands**:
+
+```bash
+# Test webhook manually
+curl -X POST http://localhost:3006/webhook/trigger-sync \
+  -H "Content-Type: application/json" \
+  -d '{"action": "test"}'
+
+# Check webhook health
+curl http://localhost:3006/webhook/health
+```
+
+## 🛠 **Troubleshooting**
+
+### **Webhook Not Receiving Events**:
+
+1. Check webhook URL is accessible
+2. Verify secret matches
+3. Check GitHub webhook delivery logs
+
+### **File Watcher Not Detecting Remote Changes**:
+
+1. Ensure `git pull` is working
+2. Check network connectivity
+3. Verify git credentials
+
+### **Patches Not Generating**:
+
+1. Check `npm run ai:next-patch` works manually
+2. Verify AI agent detection patterns
+3. Check backend logs for errors
+
+## 🎉 **Benefits**
+
+- **No more blind spots**: Detects all AI agent work
+- **Real-time response**: Webhook triggers immediately
+- **Fallback system**: File watcher still works if webhook fails
+- **Better monitoring**: Clear logs and status tracking
+- **Scalable**: Works with multiple AI agents
+
+## 📝 **Next Steps**
+
+1. **Set up webhook** in GitHub repository
+2. **Test with AI agent commits**
+3. **Monitor logs** for successful detection
+4. **Adjust detection patterns** if needed
+5. **Scale to production** when ready
