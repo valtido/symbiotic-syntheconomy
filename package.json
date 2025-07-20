@@ -34,7 +34,11 @@
     "dev:frontend": "cd frontend && PORT=3009 npm run dev",
     "dev:dashboard": "cd dashboard && npm run dev",
     "watch:sync": "tsx watch scripts/fileWatcher.ts",
-    "cleanup:patches": "tsx scripts/cleanupPatches.ts"
+    "cleanup:patches": "tsx scripts/cleanupPatches.ts",
+    "simulate:ai": "npx tsx scripts/aiAgentSimulator.ts",
+    "simulate:ai:fast": "npx tsx scripts/aiAgentSimulator.ts 1",
+    "monitor:activity": "npx tsx scripts/monitorActivity.ts",
+    "configure:ai-agents": "npx tsx scripts/configureAIAgents.ts"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

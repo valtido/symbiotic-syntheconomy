@@ -1,0 +1,20 @@
+# Sample Commit Messages for Claude AI
+
+## Good Examples:
+Claude AI - Fix TypeScript compilation errors [AI]
+Claude AI - Optimize database query performance [AI]
+Claude AI - Add comprehensive error handling [AI]
+Claude AI - Improve code documentation [AI]
+Claude AI - Refactor component structure [AI]
+
+## Bad Examples:
+Fix bugs
+Update code
+Add features
+(These won't trigger the webhook system)
+
+## Remember:
+- Always include [AI] in your commit messages
+- Use descriptive commit messages
+- Focus on one change per commit
+- Test your changes before committing

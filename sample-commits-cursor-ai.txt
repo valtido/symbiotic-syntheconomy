@@ -1,0 +1,20 @@
+# Sample Commit Messages for Cursor AI
+
+## Good Examples:
+Cursor AI - Fix TypeScript compilation errors [AI]
+Cursor AI - Optimize database query performance [AI]
+Cursor AI - Add comprehensive error handling [AI]
+Cursor AI - Improve code documentation [AI]
+Cursor AI - Refactor component structure [AI]
+
+## Bad Examples:
+Fix bugs
+Update code
+Add features
+(These won't trigger the webhook system)
+
+## Remember:
+- Always include [AI] in your commit messages
+- Use descriptive commit messages
+- Focus on one change per commit
+- Test your changes before committing
