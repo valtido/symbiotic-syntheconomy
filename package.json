@@ -26,6 +26,7 @@
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../contracts && npm install",
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
     "watch:sync": "npx tsx scripts/fileWatcher.ts",
+    "cleanup:patches": "npx tsx scripts/cleanupPatches.ts",
     "webhook:test": "curl -X POST http://localhost:3001/webhook/trigger-sync -H \"Content-Type: application/json\" -d '{\"action\":\"test\"}'"
   },
   "devDependencies": {

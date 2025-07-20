@@ -2,6 +2,7 @@ import { watch } from 'fs';
 import { exec } from 'child_process';
 import path from 'path';
 import { sendDiscordNotification } from './notifyDiscord';
+import { cleanupOldPatches, updatePatchLog } from './cleanupPatches';
 
 const watchFiles = ['ai-sync-log.md', 'rituals.json', 'tasks.md'];
 const absolutePaths = watchFiles.map((f) => path.resolve(f));
@@ -65,12 +66,22 @@ async function commitAndPush() {
       }
       if (stderr) console.error(`⚠️ Git STDERR:\n${stderr}`);
       console.log(`🚀 Patch committed and pushed:\n${stdout}`);
+
+      // Clean up old patches after successful commit
+      try {
+        cleanupOldPatches();
+        updatePatchLog();
+        console.log('🧹 Patch cleanup completed');
+      } catch (cleanupError) {
+        console.error('⚠️ Patch cleanup failed:', cleanupError);
+      }
+
       await sendDiscordNotification({
         agent: 'Cursor',
         task: 'Patch Generation',
         status: 'Success',
         emoji: '🤖',
-        details: 'Patch saved to /patches/xyz.patch',
+        details: 'Patch saved and old patches cleaned up',
       });
     },
   );
