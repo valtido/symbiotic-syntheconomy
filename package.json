@@ -24,7 +24,7 @@
     "test:contracts": "cd contracts && npm run test",
     "deploy:contracts": "cd contracts && npm run deploy",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../contracts && npm install",
-    "watch:sync": "node scripts/fileWatcher.js",
+    "watch:sync": "npx tsx scripts/fileWatcher.js",
     "webhook:test": "curl -X POST http://localhost:3001/webhook/trigger-sync -H \"Content-Type: application/json\" -d '{\"action\":\"test\"}'"
   },
   "devDependencies": {
