@@ -31,7 +31,7 @@ Add to your `.env` file:
 
 ```bash
 # GitHub Webhook Secret (optional but recommended)
-GITHUB_WEBHOOK_SECRET=your_webhook_secret_here
+GH_WEBHOOK_SECRET=your_webhook_secret_here
 
 # Backend URL for webhook
 BACKEND_URL=http://localhost:3006
@@ -44,7 +44,7 @@ BACKEND_URL=http://localhost:3006
 3. **Configure webhook**:
    - **Payload URL**: `http://your-domain.com/webhook/github` (or ngrok URL for local testing)
    - **Content type**: `application/json`
-   - **Secret**: Same as `GITHUB_WEBHOOK_SECRET` in your .env
+   - **Secret**: Same as `GH_WEBHOOK_SECRET` in your .env
    - **Events**: Select "Just the push event"
    - **Active**: ✅ Checked
 

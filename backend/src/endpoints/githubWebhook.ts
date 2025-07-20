@@ -39,9 +39,9 @@ export default async function githubWebhookRoutes(fastify: FastifyInstance) {
         const signature = request.headers['x-hub-signature-256'] as string;
 
         // Verify webhook signature (optional but recommended)
-        if (process.env.GITHUB_WEBHOOK_SECRET) {
+        if (process.env['GH_WEBHOOK_SECRET']) {
           const expectedSignature = `sha256=${crypto
-            .createHmac('sha256', process.env.GITHUB_WEBHOOK_SECRET)
+            .createHmac('sha256', process.env['GH_WEBHOOK_SECRET'])
             .update(JSON.stringify(payload))
             .digest('hex')}`;
 

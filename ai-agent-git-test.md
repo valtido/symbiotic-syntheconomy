@@ -18,11 +18,11 @@ Try to access the repository using GitHub API:
 
 ```bash
 # Test basic repository access
-curl -H "Authorization: token $GITHUB_TOKEN" \
+curl -H "Authorization: token $GH_TOKEN" \
   https://api.github.com/repos/valtido/symbiotic-syntheconomy
 
 # Test file reading
-curl -H "Authorization: token $GITHUB_TOKEN" \
+curl -H "Authorization: token $GH_TOKEN" \
   https://api.github.com/repos/valtido/symbiotic-syntheconomy/contents/ai-sync-log.md
 ```
 
@@ -32,12 +32,12 @@ Attempt to read and update files via GitHub API:
 
 ```bash
 # Read ai-sync-log.md
-curl -H "Authorization: token $GITHUB_TOKEN" \
+curl -H "Authorization: token $GH_TOKEN" \
   https://api.github.com/repos/valtido/symbiotic-syntheconomy/contents/ai-sync-log.md
 
 # Create a test file
 curl -X PUT \
-  -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Authorization: token $GH_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Test file creation by AI agent",
@@ -52,11 +52,11 @@ Verify access to the "ai" environment:
 
 ```bash
 # List environments (if accessible)
-curl -H "Authorization: token $GITHUB_TOKEN" \
+curl -H "Authorization: token $GH_TOKEN" \
   https://api.github.com/repos/valtido/symbiotic-syntheconomy/environments
 
 # Check environment secrets (if accessible)
-curl -H "Authorization: token $GITHUB_TOKEN" \
+curl -H "Authorization: token $GH_TOKEN" \
   https://api.github.com/repos/valtido/symbiotic-syntheconomy/environments/ai/secrets
 ```
 
