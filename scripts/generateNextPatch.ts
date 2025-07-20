@@ -1,43 +1,33 @@
+// scripts/generateNextPatch.ts
 import fs from 'fs';
-import { execSync } from 'child_process';
-import { sendDiscordNotification } from './notifyDiscord';
+import path from 'path';
 
-const PATCH_FILE = `patches/generated-${Date.now()}.patch`;
+const PATCH_DIR = path.join(process.cwd(), 'patches');
+const PATCH_NAME = `generated-${Date.now()}.patch`;
+const PATCH_PATH = path.join(PATCH_DIR, PATCH_NAME);
 
-function run(cmd: string): string {
-  return execSync(cmd, { stdio: 'pipe' }).toString().trim();
-}
-
-function ensureDirectoryExists(path: string) {
-  if (!fs.existsSync(path)) {
-    fs.mkdirSync(path, { recursive: true });
+function ensurePatchDir() {
+  if (!fs.existsSync(PATCH_DIR)) {
+    fs.mkdirSync(PATCH_DIR);
   }
 }
 
-async function generatePatch() {
-  ensureDirectoryExists('patches');
-
-  try {
-    const diff = run('git diff');
-    if (!diff) {
-      console.log('✅ No changes to patch.');
-      return;
+function generatePatch() {
+  ensurePatchDir();
+  const cmd = `git diff HEAD > ${PATCH_PATH}`;
+  require('child_process').exec(cmd, (err: any) => {
+    if (err) {
+      console.error('❌ Failed to generate patch:', err.message);
+      process.exit(1);
     }
-
-    run(`git diff > ${PATCH_FILE}`);
-    console.log(`📦 Patch generated: ${PATCH_FILE}`);
-
-    run(`git add .`);
-    run(`git commit -m "🤖 Auto-patch: ${new Date().toISOString()}"`);
-    run(`git push origin main`);
-    console.log('🚀 Patch committed and pushed.');
-
-    await sendDiscordNotification(
-      `📦 New Patch Generated\n\`${PATCH_FILE}\`\nTriggered by: \`ai-sync-log.md\`\nStatus: ✅ Committed & pushed`,
-    );
-  } catch (error) {
-    console.error('❌ Error during patch generation or push:', error);
-  }
+    const size = fs.statSync(PATCH_PATH).size;
+    if (size === 0) {
+      fs.unlinkSync(PATCH_PATH);
+      console.log('✅ No changes to patch.');
+    } else {
+      console.log(`📦 Patch generated: ${PATCH_PATH}`);
+    }
+  });
 }
 
 generatePatch();
