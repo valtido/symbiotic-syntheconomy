@@ -27,6 +27,8 @@
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
     "watch:sync": "npx tsx scripts/fileWatcher.ts",
     "cleanup:patches": "npx tsx scripts/cleanupPatches.ts",
+    "ritual:start": "npx tsx scripts/startRitualDevelopment.ts",
+    "ritual:coordinate": "npx tsx scripts/ritualCoordination.ts",
     "webhook:test": "curl -X POST http://localhost:3002/webhook/trigger-sync -H \"Content-Type: application/json\" -d '{\"action\":\"test\"}'",
     "dev:backend": "cd backend && PORT=3006 npm run dev",
     "dev:frontend": "cd frontend && PORT=3009 npm run dev",

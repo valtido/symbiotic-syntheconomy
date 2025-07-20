@@ -1,0 +1,17 @@
+[
+  {
+    "id": "ritual_1753047753959_uvdp47ts1",
+    "name": "Salmon River Blessing Ceremony",
+    "bioregion": "Pacific Northwest",
+    "culturalTradition": "Coast Salish",
+    "description": "A ceremony honoring the salmon and the cycle of life, drawing from traditional Coast Salish practices",
+    "createdAt": "2025-07-20T21:42:33.981Z",
+    "status": "in_development",
+    "agents": [
+      "cursor",
+      "grok",
+      "chatgpt"
+    ],
+    "coordinationId": "ritual_1753047753959_uvdp47ts1"
+  }
+]

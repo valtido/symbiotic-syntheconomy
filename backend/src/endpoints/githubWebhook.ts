@@ -133,6 +133,65 @@ export default async function githubWebhookRoutes(fastify: FastifyInstance) {
       }
     },
   );
+
+  // Agent notification endpoint for ritual coordination
+  fastify.post(
+    '/webhook/agent-notification',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const notification = request.body as {
+          event: string;
+          taskId: string;
+          task: {
+            id: string;
+            type: string;
+            agent: string;
+            status: string;
+            description: string;
+          };
+          timestamp: number;
+        };
+
+        fastify.log.info(
+          `Agent notification received: ${notification.event} for task ${notification.taskId}`,
+        );
+
+        // Process the notification based on event type
+        switch (notification.event) {
+          case 'new_task':
+            fastify.log.info(
+              `New ritual task created: ${notification.task.description}`,
+            );
+            break;
+          case 'task_assigned':
+            fastify.log.info(
+              `Task ${notification.taskId} assigned to ${notification.task.agent}`,
+            );
+            break;
+          case 'task_completed':
+            fastify.log.info(
+              `Task ${notification.taskId} completed by ${notification.task.agent}`,
+            );
+            // Trigger patch generation for completed tasks
+            await triggerAIPatchGeneration(fastify, []);
+            break;
+          default:
+            fastify.log.info(
+              `Unknown notification event: ${notification.event}`,
+            );
+        }
+
+        return reply.send({
+          success: true,
+          message: `Notification processed: ${notification.event}`,
+          taskId: notification.taskId,
+        });
+      } catch (error) {
+        fastify.log.error('Agent notification error:', error);
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    },
+  );
 }
 
 async function triggerAIPatchGeneration(
