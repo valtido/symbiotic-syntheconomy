@@ -42,7 +42,7 @@ const services: Omit<Service, 'status' | 'lastChecked'>[] = [
     id: 'frontend',
     name: 'Frontend App',
     description: 'Next.js frontend application',
-    port: 3007,
+    port: 3000,
     command: 'npm run dev',
     directory: 'frontend',
   },
@@ -51,7 +51,7 @@ const services: Omit<Service, 'status' | 'lastChecked'>[] = [
     name: 'File Watcher',
     description: 'TypeScript file watcher for auto-patching',
     port: null,
-    command: 'npm run watch:sync',
+    command: 'npx tsx watch scripts/fileWatcher.ts',
     directory: '.',
   },
   {
@@ -67,7 +67,7 @@ const services: Omit<Service, 'status' | 'lastChecked'>[] = [
     name: 'Patch Cleanup',
     description: 'Automatic patch cleanup service',
     port: null,
-    command: 'npm run cleanup:patches',
+    command: 'npx tsx scripts/cleanupPatches.ts',
     directory: '.',
   },
 ];
@@ -371,7 +371,7 @@ export default function ManagementPage() {
         </Typography>
         <Box component='ul' sx={{ mt: 1, pl: 2 }}>
           <li>Backend API: Port 3006</li>
-          <li>Frontend App: Port 3007</li>
+          <li>Frontend App: Port 3000</li>
           <li>Smart Contracts: Port 3008</li>
         </Box>
       </Box>

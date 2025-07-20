@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn, exec } from 'child_process';
 import { promisify } from 'util';
+import { platform } from 'os';
 
 const execAsync = promisify(exec);
 
@@ -66,11 +67,15 @@ async function startService(serviceId: string, service: any) {
       }
     }
 
+    // Determine shell based on platform
+    const shell = platform() === 'win32' ? 'cmd.exe' : '/bin/bash';
+    const shellArgs = platform() === 'win32' ? ['/c'] : ['-c'];
+
     // Start the service
     const childProcess = spawn(service.command, [], {
       cwd: service.directory,
       stdio: 'pipe',
-      shell: true,
+      shell: false,
       env: {
         ...process.env,
         PORT: service.port?.toString() || '',
@@ -91,8 +96,17 @@ async function startService(serviceId: string, service: any) {
       runningProcesses.delete(serviceId);
     });
 
+    // Handle stdout and stderr
+    childProcess.stdout?.on('data', (data) => {
+      console.log(`[${serviceId}] ${data.toString().trim()}`);
+    });
+
+    childProcess.stderr?.on('data', (data) => {
+      console.error(`[${serviceId}] ERROR: ${data.toString().trim()}`);
+    });
+
     // Wait a moment to see if the process starts successfully
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     if (childProcess.killed) {
       runningProcesses.delete(serviceId);
