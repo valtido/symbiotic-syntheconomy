@@ -4,6 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import multipart from '@fastify/multipart';
 import { config } from 'dotenv';
 
 // Import routes
@@ -56,6 +57,8 @@ async function registerPlugins() {
     max: 100,
     timeWindow: '1 minute',
   });
+
+  await fastify.register(multipart);
 
   // Swagger documentation
   await fastify.register(swagger, {
