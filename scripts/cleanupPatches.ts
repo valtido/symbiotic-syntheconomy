@@ -1,142 +1,94 @@
+// scripts/cleanupPatches.ts
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 
-const PATCHES_DIR = path.join(process.cwd(), 'patches');
-const PATCH_LOG_FILE = path.join(PATCHES_DIR, 'patch-log.md');
-const MAX_PATCHES_TO_KEEP = 3;
+const patchesDir = path.resolve('patches');
 
 interface PatchInfo {
   filename: string;
-  timestamp: number;
-  size: number;
+  commitId: string;
+  timestamp: string;
+  content: string;
 }
 
-function getPatchFiles(): PatchInfo[] {
-  if (!fs.existsSync(PATCHES_DIR)) {
-    return [];
-  }
-
-  const files = fs
-    .readdirSync(PATCHES_DIR)
-    .filter((file) => file.endsWith('.patch'))
-    .map((file) => {
-      const filePath = path.join(PATCHES_DIR, file);
-      const stats = fs.statSync(filePath);
-      const timestamp = parseInt(
-        file.replace('generated-', '').replace('.patch', ''),
-      );
-
-      return {
-        filename: file,
-        timestamp,
-        size: stats.size,
-      };
-    })
-    .sort((a, b) => b.timestamp - a.timestamp); // Sort by newest first
-
-  return files;
+function extractCommitId(filename: string): string | null {
+  // Extract commit ID from filename like "patch-3e5e321e-2025-07-20T23-15-39-740Z.md"
+  const match = filename.match(/patch-([a-f0-9]+)-/);
+  return match ? match[1] : null;
 }
 
-function cleanupOldPatches(): void {
-  const patches = getPatchFiles();
+function cleanupDuplicatePatches() {
+  console.log('🧹 Cleaning up duplicate patches...');
 
-  if (patches.length <= MAX_PATCHES_TO_KEEP) {
-    console.log(
-      `✅ No cleanup needed. Keeping ${patches.length} patches (max: ${MAX_PATCHES_TO_KEEP})`,
-    );
+  if (!fs.existsSync(patchesDir)) {
+    console.log('✅ No patches directory found.');
     return;
   }
 
-  const patchesToDelete = patches.slice(MAX_PATCHES_TO_KEEP);
-  const patchesToKeep = patches.slice(0, MAX_PATCHES_TO_KEEP);
+  const files = fs.readdirSync(patchesDir);
+  const patchFiles = files.filter(
+    (file) => file.endsWith('.md') && file.startsWith('patch-'),
+  );
 
-  console.log(`🧹 Cleaning up ${patchesToDelete.length} old patches...`);
+  console.log(`📁 Found ${patchFiles.length} patch files`);
 
-  patchesToDelete.forEach((patch) => {
-    const filePath = path.join(PATCHES_DIR, patch.filename);
-    try {
-      fs.unlinkSync(filePath);
-      console.log(`🗑️  Deleted: ${patch.filename}`);
-    } catch (error) {
-      console.error(`❌ Failed to delete ${patch.filename}:`, error);
+  // Group patches by commit ID
+  const patchesByCommit: Record<string, PatchInfo[]> = {};
+
+  patchFiles.forEach((filename) => {
+    const commitId = extractCommitId(filename);
+    if (!commitId) {
+      console.log(`⚠️  Could not extract commit ID from: ${filename}`);
+      return;
+    }
+
+    const filePath = path.join(patchesDir, filename);
+    const content = fs.readFileSync(filePath, 'utf-8');
+
+    if (!patchesByCommit[commitId]) {
+      patchesByCommit[commitId] = [];
+    }
+
+    patchesByCommit[commitId].push({
+      filename,
+      commitId,
+      timestamp: filename.split('-').slice(-1)[0].replace('.md', ''),
+      content,
+    });
+  });
+
+  let totalRemoved = 0;
+
+  // For each commit, keep only the latest patch
+  Object.entries(patchesByCommit).forEach(([commitId, patches]) => {
+    if (patches.length > 1) {
+      console.log(`🔄 Found ${patches.length} patches for commit ${commitId}`);
+
+      // Sort by timestamp (newest first)
+      patches.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+
+      // Keep the first (newest) one, remove the rest
+      const toRemove = patches.slice(1);
+
+      toRemove.forEach((patch) => {
+        const filePath = path.join(patchesDir, patch.filename);
+        fs.unlinkSync(filePath);
+        console.log(`🗑️  Removed duplicate: ${patch.filename}`);
+        totalRemoved++;
+      });
     }
   });
 
-  console.log(`✅ Kept ${patchesToKeep.length} recent patches:`);
-  patchesToKeep.forEach((patch) => {
-    console.log(`   📦 ${patch.filename} (${patch.size} bytes)`);
-  });
+  console.log(
+    `✅ Cleanup complete! Removed ${totalRemoved} duplicate patches.`,
+  );
+
+  // Count remaining patches
+  const remainingFiles = fs
+    .readdirSync(patchesDir)
+    .filter((file) => file.endsWith('.md') && file.startsWith('patch-'));
+  console.log(`📊 Remaining unique patches: ${remainingFiles.length}`);
 }
 
-function updatePatchLog(): void {
-  const patches = getPatchFiles();
-  const timestamp = new Date().toISOString().split('T')[0];
-
-  if (!fs.existsSync(PATCH_LOG_FILE)) {
-    console.log('📝 Creating new patch log file...');
-  }
-
-  const logContent = `# Patch Application Log
-
-This file tracks all patches that have been applied to the repository.
-
-## Format
-\`[Timestamp] [Patch File] [Description] [Status]\`
-
-## Applied Patches
-
-${patches
-  .map((patch) => {
-    const date = new Date(patch.timestamp).toISOString().split('T')[0];
-    const time = new Date(patch.timestamp)
-      .toISOString()
-      .split('T')[1]
-      .split('.')[0];
-    return `- \`[${date} ${time}] ${patch.filename}\` - Auto-generated patch (${patch.size} bytes) ✅ APPLIED`;
-  })
-  .join('\n')}
-
-## Patch Management Policy
-
-- **Keep Recent**: Only the last ${MAX_PATCHES_TO_KEEP} patch files are retained
-- **Log All**: All applied patches are logged here
-- **Cleanup**: Old patches are automatically deleted after application
-- **Reference**: Use this log for historical patch tracking
-
-## Current Status
-
-- **Total Patches Applied**: ${patches.length}
-- **Patches Retained**: ${Math.min(
-    patches.length,
-    MAX_PATCHES_TO_KEEP,
-  )} (most recent)
-- **Last Cleanup**: ${timestamp} ${
-    new Date().toISOString().split('T')[1].split('.')[0]
-  }
-`;
-
-  fs.writeFileSync(PATCH_LOG_FILE, logContent);
-  console.log(`📝 Updated patch log with ${patches.length} patches`);
-}
-
-function main(): void {
-  console.log('🧹 Starting patch cleanup process...');
-
-  try {
-    cleanupOldPatches();
-    updatePatchLog();
-
-    console.log('✅ Patch cleanup completed successfully!');
-  } catch (error) {
-    console.error('❌ Patch cleanup failed:', error);
-    process.exit(1);
-  }
-}
-
-// Run cleanup if called directly
-if (require.main === module) {
-  main();
-}
-
-export { cleanupOldPatches, updatePatchLog, getPatchFiles };
+// Run cleanup
+cleanupDuplicatePatches();
