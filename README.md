@@ -38,7 +38,16 @@ npm run deploy:contracts
 
 ### Overview
 
-This project uses AI agent coordination via GitHub webhooks and shared logs to maintain consistency across multiple AI assistants (Grok, Cursor AI, etc.).
+This project uses AI agent coordination via GitHub webhooks and shared logs to maintain consistency across multiple AI assistants (Grok, Cursor AI, etc.). **All AI coordination now happens in this single repository.**
+
+### Repository Consolidation
+
+**Primary Repository**: https://github.com/valtido/symbiotic-syntheconomy
+**Deprecated Repository**: https://github.com/valtido/symbiotic-syntheconomy-ai-coordination
+
+- All AI agents should use ONLY the main repository
+- The separate AI coordination repository is deprecated
+- All code, documentation, and coordination logs are in this repository
 
 ### Coordination Protocol
 
