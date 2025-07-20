@@ -1,33 +1,21 @@
 // scripts/generateNextPatch.ts
-import fs from 'fs';
-import path from 'path';
+import { execSync } from 'child_process';
+import { writeFileSync } from 'fs';
 
-const PATCH_DIR = path.join(process.cwd(), 'patches');
-const PATCH_NAME = `generated-${Date.now()}.patch`;
-const PATCH_PATH = path.join(PATCH_DIR, PATCH_NAME);
+const timestamp = Date.now();
+const outputPath = `patches/generated-${timestamp}.patch`;
 
-function ensurePatchDir() {
-  if (!fs.existsSync(PATCH_DIR)) {
-    fs.mkdirSync(PATCH_DIR);
+try {
+  const diff = execSync('git diff HEAD').toString().trim();
+
+  if (!diff) {
+    console.log('✅ No changes to patch.');
+    process.exit(0);
   }
-}
 
-function generatePatch() {
-  ensurePatchDir();
-  const cmd = `git diff HEAD > ${PATCH_PATH}`;
-  require('child_process').exec(cmd, (err: any) => {
-    if (err) {
-      console.error('❌ Failed to generate patch:', err.message);
-      process.exit(1);
-    }
-    const size = fs.statSync(PATCH_PATH).size;
-    if (size === 0) {
-      fs.unlinkSync(PATCH_PATH);
-      console.log('✅ No changes to patch.');
-    } else {
-      console.log(`📦 Patch generated: ${PATCH_PATH}`);
-    }
-  });
+  writeFileSync(outputPath, diff);
+  console.log(`📦 Patch generated: ${outputPath}`);
+} catch (err) {
+  console.error('❌ Failed to generate patch:', err);
+  process.exit(1);
 }
-
-generatePatch();
