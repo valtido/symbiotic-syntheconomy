@@ -68,21 +68,18 @@ async function startService(serviceId: string, service: any) {
       }
     }
 
-    // Get absolute path to project root (two levels up from dashboard)
-    const projectRoot = resolve(process.cwd(), '..', '..');
+    // Get absolute path to project root (one level up from dashboard)
+    const projectRoot = resolve(process.cwd(), '..');
     const serviceDir = resolve(projectRoot, service.directory);
 
     console.log(`Starting service ${serviceId} in directory: ${serviceDir}`);
     console.log(`Command: ${service.command}`);
 
-    // Determine shell based on platform
-    const shell = platform() === 'win32' ? 'cmd.exe' : '/bin/bash';
-    const shellArgs = platform() === 'win32' ? ['/c'] : ['-c'];
-
-    // Start the service using shell execution
-    const childProcess = spawn(shell, [...shellArgs, service.command], {
+    // Use a simpler approach - just use the command directly with shell: true
+    const childProcess = spawn(service.command, [], {
       cwd: serviceDir,
       stdio: 'pipe',
+      shell: true,
       env: {
         ...process.env,
         PORT: service.port?.toString() || '',
