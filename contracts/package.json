@@ -4,6 +4,7 @@
   "description": "Smart contracts for Global Regeneration Ceremony on Base testnet",
   "main": "index.js",
   "scripts": {
+    "dev": "hardhat node --port 3010",
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy": "hardhat run scripts/deploy.ts --network base-testnet",

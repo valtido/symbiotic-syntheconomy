@@ -42,7 +42,7 @@ const services: Omit<Service, 'status' | 'lastChecked'>[] = [
     id: 'frontend',
     name: 'Frontend App',
     description: 'Next.js frontend application',
-    port: 3000,
+    port: 3009,
     command: 'npm run dev',
     directory: 'frontend',
   },
@@ -58,7 +58,7 @@ const services: Omit<Service, 'status' | 'lastChecked'>[] = [
     id: 'contracts',
     name: 'Smart Contracts',
     description: 'Hardhat development environment',
-    port: 3008,
+    port: 3010,
     command: 'npm run dev',
     directory: 'contracts',
   },
@@ -92,28 +92,49 @@ export default function ManagementPage() {
   const checkServiceHealth = async (
     service: Omit<Service, 'status' | 'lastChecked'>,
   ): Promise<Service> => {
-    if (!service.port || !service.healthEndpoint) {
-      return { ...service, status: 'unknown', lastChecked: new Date() };
-    }
+    // For services with health endpoints, check them
+    if (service.port && service.healthEndpoint) {
+      try {
+        const response = await fetch(
+          `http://localhost:${service.port}${service.healthEndpoint}`,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(5000), // 5 second timeout
+          },
+        );
 
-    try {
-      const response = await fetch(
-        `http://localhost:${service.port}${service.healthEndpoint}`,
-        {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(5000), // 5 second timeout
-        },
-      );
-
-      if (response.ok) {
-        return { ...service, status: 'running', lastChecked: new Date() };
-      } else {
-        return { ...service, status: 'error', lastChecked: new Date() };
+        if (response.ok) {
+          return { ...service, status: 'running', lastChecked: new Date() };
+        } else {
+          return { ...service, status: 'error', lastChecked: new Date() };
+        }
+      } catch (error) {
+        return { ...service, status: 'stopped', lastChecked: new Date() };
       }
-    } catch (error) {
-      return { ...service, status: 'stopped', lastChecked: new Date() };
     }
+
+    // For services with ports but no health endpoint, try a basic connection
+    if (service.port) {
+      try {
+        const response = await fetch(`http://localhost:${service.port}`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(3000), // 3 second timeout
+        });
+
+        if (response.ok || response.status < 500) {
+          return { ...service, status: 'running', lastChecked: new Date() };
+        } else {
+          return { ...service, status: 'error', lastChecked: new Date() };
+        }
+      } catch (error) {
+        return { ...service, status: 'stopped', lastChecked: new Date() };
+      }
+    }
+
+    // For services without ports (background processes), we can't easily check
+    // They'll show as unknown unless we implement process checking
+    return { ...service, status: 'unknown', lastChecked: new Date() };
   };
 
   const checkAllServices = async () => {
@@ -213,7 +234,7 @@ export default function ManagementPage() {
   }, []);
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
       <Typography variant='h4' gutterBottom>
         Service Management Dashboard
       </Typography>
@@ -246,25 +267,76 @@ export default function ManagementPage() {
         </Button>
       </Box>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-          gap: '24px',
-        }}
-      >
+      {/* Vertical List Layout */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {services.map((service) => {
           const state = serviceStates[service.id];
           const isLoading = loading[service.id];
 
           return (
-            <Card key={service.id}>
+            <Card key={service.id} sx={{ width: '100%' }}>
               <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Typography variant='h6' sx={{ mr: 1 }}>
-                    {getStatusIcon(state.status)}
-                  </Typography>
-                  <Typography variant='h6'>{service.name}</Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 2,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography variant='h6' sx={{ mr: 1 }}>
+                      {getStatusIcon(state.status)}
+                    </Typography>
+                    <Typography variant='h6'>{service.name}</Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Tooltip title='Start Service'>
+                      <IconButton
+                        onClick={() =>
+                          executeServiceAction(service.id, 'start')
+                        }
+                        disabled={isLoading || state.status === 'running'}
+                        color='success'
+                        size='small'
+                      >
+                        {isLoading && state.status === 'stopped' ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          '▶️'
+                        )}
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title='Stop Service'>
+                      <IconButton
+                        onClick={() => executeServiceAction(service.id, 'stop')}
+                        disabled={isLoading || state.status === 'stopped'}
+                        color='error'
+                        size='small'
+                      >
+                        {isLoading && state.status === 'running' ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          '⏹️'
+                        )}
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title='Restart Service'>
+                      <IconButton
+                        onClick={() =>
+                          executeServiceAction(service.id, 'restart')
+                        }
+                        disabled={isLoading}
+                        color='primary'
+                        size='small'
+                      >
+                        {isLoading ? <CircularProgress size={20} /> : '🔄'}
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </Box>
 
                 <Typography
@@ -275,12 +347,13 @@ export default function ManagementPage() {
                   {service.description}
                 </Typography>
 
-                <Box sx={{ mb: 2 }}>
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
+                >
                   <Chip
                     label={state.status}
                     color={getStatusColor(state.status) as any}
                     size='small'
-                    sx={{ mr: 1 }}
                   />
                   {service.port && (
                     <Chip
@@ -289,69 +362,15 @@ export default function ManagementPage() {
                       size='small'
                     />
                   )}
+                  <Typography variant='caption' color='text.secondary'>
+                    Last checked: {state.lastChecked.toLocaleTimeString()}
+                  </Typography>
                 </Box>
 
                 <Typography
                   variant='caption'
                   color='text.secondary'
                   display='block'
-                  sx={{ mb: 2 }}
-                >
-                  Last checked: {state.lastChecked.toLocaleTimeString()}
-                </Typography>
-
-                <Divider sx={{ my: 2 }} />
-
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Tooltip title='Start Service'>
-                    <IconButton
-                      onClick={() => executeServiceAction(service.id, 'start')}
-                      disabled={isLoading || state.status === 'running'}
-                      color='success'
-                      size='small'
-                    >
-                      {isLoading && state.status === 'stopped' ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        '▶️'
-                      )}
-                    </IconButton>
-                  </Tooltip>
-
-                  <Tooltip title='Stop Service'>
-                    <IconButton
-                      onClick={() => executeServiceAction(service.id, 'stop')}
-                      disabled={isLoading || state.status === 'stopped'}
-                      color='error'
-                      size='small'
-                    >
-                      {isLoading && state.status === 'running' ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        '⏹️'
-                      )}
-                    </IconButton>
-                  </Tooltip>
-
-                  <Tooltip title='Restart Service'>
-                    <IconButton
-                      onClick={() =>
-                        executeServiceAction(service.id, 'restart')
-                      }
-                      disabled={isLoading}
-                      color='primary'
-                      size='small'
-                    >
-                      {isLoading ? <CircularProgress size={20} /> : '🔄'}
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-
-                <Typography
-                  variant='caption'
-                  color='text.secondary'
-                  display='block'
-                  sx={{ mt: 1 }}
                 >
                   Command: {service.command}
                 </Typography>
@@ -359,7 +378,7 @@ export default function ManagementPage() {
             </Card>
           );
         })}
-      </div>
+      </Box>
 
       <Box sx={{ mt: 4, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
         <Typography variant='h6' gutterBottom>
@@ -371,8 +390,8 @@ export default function ManagementPage() {
         </Typography>
         <Box component='ul' sx={{ mt: 1, pl: 2 }}>
           <li>Backend API: Port 3006</li>
-          <li>Frontend App: Port 3000</li>
-          <li>Smart Contracts: Port 3008</li>
+          <li>Frontend App: Port 3009</li>
+          <li>Smart Contracts: Port 3010</li>
         </Box>
       </Box>
     </Box>
