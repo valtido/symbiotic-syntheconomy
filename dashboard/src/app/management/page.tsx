@@ -123,38 +123,29 @@ export default function ManagementPage() {
       }
     }
 
-    // For services with ports but no health endpoint, try multiple endpoints
+    // For services with ports but no health endpoint, try multiple approaches
     if (service.port) {
-      const endpoints = ['/', '/api', '/health', '/status'];
+      // Method 1: Try simple GET request without headers (avoid CORS preflight)
+      try {
+        console.log(
+          `🔍 Trying simple GET to ${service.name} at http://localhost:${service.port}`,
+        );
+        const response = await fetch(`http://localhost:${service.port}`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(3000),
+        });
 
-      for (const endpoint of endpoints) {
-        try {
+        if (response.status < 500) {
           console.log(
-            `🔍 Trying ${service.name} at http://localhost:${service.port}${endpoint}`,
+            `✅ ${service.name} responding to simple GET (status: ${response.status})`,
           );
-          const response = await fetch(
-            `http://localhost:${service.port}${endpoint}`,
-            {
-              method: 'GET',
-              signal: AbortSignal.timeout(3000), // 3 second timeout
-            },
-          );
-
-          // If we get any response (even 404), the service is running
-          if (response.status < 500) {
-            console.log(
-              `✅ ${service.name} responding at ${endpoint} (status: ${response.status})`,
-            );
-            return { ...service, status: 'running', lastChecked: new Date() };
-          }
-        } catch (error) {
-          console.log(`❌ ${service.name} failed at ${endpoint}:`, error);
-          // Continue to next endpoint
-          continue;
+          return { ...service, status: 'running', lastChecked: new Date() };
         }
+      } catch (error) {
+        console.log(`❌ ${service.name} simple GET failed:`, error);
       }
 
-      // If no endpoints responded, try a simple TCP connection check
+      // Method 2: Try HEAD request
       try {
         console.log(
           `🔍 Trying HEAD request to ${service.name} at http://localhost:${service.port}`,
@@ -172,11 +163,36 @@ export default function ManagementPage() {
         }
       } catch (error) {
         console.log(`❌ ${service.name} HEAD request failed:`, error);
-        // Service is not responding
-        return { ...service, status: 'stopped', lastChecked: new Date() };
       }
 
-      console.log(`❌ ${service.name} not responding to any endpoint`);
+      // Method 3: Try specific endpoints
+      const endpoints = ['/', '/api', '/health', '/status'];
+      for (const endpoint of endpoints) {
+        try {
+          console.log(
+            `🔍 Trying ${service.name} at http://localhost:${service.port}${endpoint}`,
+          );
+          const response = await fetch(
+            `http://localhost:${service.port}${endpoint}`,
+            {
+              method: 'GET',
+              signal: AbortSignal.timeout(3000),
+            },
+          );
+
+          if (response.status < 500) {
+            console.log(
+              `✅ ${service.name} responding at ${endpoint} (status: ${response.status})`,
+            );
+            return { ...service, status: 'running', lastChecked: new Date() };
+          }
+        } catch (error) {
+          console.log(`❌ ${service.name} failed at ${endpoint}:`, error);
+          continue;
+        }
+      }
+
+      console.log(`❌ ${service.name} not responding to any method`);
       return { ...service, status: 'stopped', lastChecked: new Date() };
     }
 
@@ -266,6 +282,31 @@ export default function ManagementPage() {
       }));
     } catch (error) {
       console.error(`Error refreshing ${serviceId}:`, error);
+    }
+  };
+
+  const testConnection = async (serviceId: string) => {
+    const service = services.find((s) => s.id === serviceId);
+    if (!service || !service.port) return;
+
+    console.log(
+      `🧪 Testing connection to ${service.name} on port ${service.port}`,
+    );
+
+    try {
+      // Test 1: Simple fetch
+      const response = await fetch(`http://localhost:${service.port}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      });
+
+      console.log(`🧪 Test result: ${response.status} ${response.statusText}`);
+      alert(
+        `${service.name} connection test: ${response.status} ${response.statusText}`,
+      );
+    } catch (error) {
+      console.log(`🧪 Test failed:`, error);
+      alert(`${service.name} connection test failed: ${error}`);
     }
   };
 
@@ -412,6 +453,16 @@ export default function ManagementPage() {
                         size='small'
                       >
                         🔍
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title='Test Connection'>
+                      <IconButton
+                        onClick={() => testConnection(service.id)}
+                        color='warning'
+                        size='small'
+                      >
+                        🧪
                       </IconButton>
                     </Tooltip>
                   </Box>
