@@ -92,6 +92,10 @@ export default function ManagementPage() {
   const checkServiceHealth = async (
     service: Omit<Service, 'status' | 'lastChecked'>,
   ): Promise<Service> => {
+    console.log(
+      `🔍 Checking health for ${service.name} (port: ${service.port})`,
+    );
+
     // For services with health endpoints, check them
     if (service.port && service.healthEndpoint) {
       try {
@@ -105,35 +109,79 @@ export default function ManagementPage() {
         );
 
         if (response.ok) {
+          console.log(`✅ ${service.name} health endpoint OK`);
           return { ...service, status: 'running', lastChecked: new Date() };
         } else {
+          console.log(
+            `⚠️ ${service.name} health endpoint returned ${response.status}`,
+          );
           return { ...service, status: 'error', lastChecked: new Date() };
         }
       } catch (error) {
+        console.log(`❌ ${service.name} health endpoint failed:`, error);
         return { ...service, status: 'stopped', lastChecked: new Date() };
       }
     }
 
-    // For services with ports but no health endpoint, try a basic connection
+    // For services with ports but no health endpoint, try multiple endpoints
     if (service.port) {
+      const endpoints = ['/', '/api', '/health', '/status'];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(
+            `🔍 Trying ${service.name} at http://localhost:${service.port}${endpoint}`,
+          );
+          const response = await fetch(
+            `http://localhost:${service.port}${endpoint}`,
+            {
+              method: 'GET',
+              signal: AbortSignal.timeout(3000), // 3 second timeout
+            },
+          );
+
+          // If we get any response (even 404), the service is running
+          if (response.status < 500) {
+            console.log(
+              `✅ ${service.name} responding at ${endpoint} (status: ${response.status})`,
+            );
+            return { ...service, status: 'running', lastChecked: new Date() };
+          }
+        } catch (error) {
+          console.log(`❌ ${service.name} failed at ${endpoint}:`, error);
+          // Continue to next endpoint
+          continue;
+        }
+      }
+
+      // If no endpoints responded, try a simple TCP connection check
       try {
+        console.log(
+          `🔍 Trying HEAD request to ${service.name} at http://localhost:${service.port}`,
+        );
         const response = await fetch(`http://localhost:${service.port}`, {
-          method: 'GET',
-          signal: AbortSignal.timeout(3000), // 3 second timeout
+          method: 'HEAD',
+          signal: AbortSignal.timeout(2000),
         });
 
-        if (response.ok || response.status < 500) {
+        if (response.status < 500) {
+          console.log(
+            `✅ ${service.name} responding to HEAD request (status: ${response.status})`,
+          );
           return { ...service, status: 'running', lastChecked: new Date() };
-        } else {
-          return { ...service, status: 'error', lastChecked: new Date() };
         }
       } catch (error) {
+        console.log(`❌ ${service.name} HEAD request failed:`, error);
+        // Service is not responding
         return { ...service, status: 'stopped', lastChecked: new Date() };
       }
+
+      console.log(`❌ ${service.name} not responding to any endpoint`);
+      return { ...service, status: 'stopped', lastChecked: new Date() };
     }
 
     // For services without ports (background processes), we can't easily check
-    // They'll show as unknown unless we implement process checking
+    console.log(`❓ ${service.name} has no port, cannot check status`);
     return { ...service, status: 'unknown', lastChecked: new Date() };
   };
 
@@ -187,9 +235,14 @@ export default function ManagementPage() {
 
       // Wait a moment for the service to start/stop, then check status
       setTimeout(() => {
-        checkAllServices();
+        checkServiceHealth(service).then((updatedService) => {
+          setServiceStates((prev) => ({
+            ...prev,
+            [serviceId]: updatedService,
+          }));
+        });
         setLoading((prev) => ({ ...prev, [serviceId]: false }));
-      }, 2000);
+      }, 3000); // Increased wait time
     } catch (error) {
       console.error(`Error ${action}ing ${serviceId}:`, error);
       setError(
@@ -198,6 +251,21 @@ export default function ManagementPage() {
         }`,
       );
       setLoading((prev) => ({ ...prev, [serviceId]: false }));
+    }
+  };
+
+  const refreshServiceStatus = async (serviceId: string) => {
+    const service = services.find((s) => s.id === serviceId);
+    if (!service) return;
+
+    try {
+      const updatedService = await checkServiceHealth(service);
+      setServiceStates((prev) => ({
+        ...prev,
+        [serviceId]: updatedService,
+      }));
+    } catch (error) {
+      console.error(`Error refreshing ${serviceId}:`, error);
     }
   };
 
@@ -334,6 +402,16 @@ export default function ManagementPage() {
                         size='small'
                       >
                         {isLoading ? <CircularProgress size={20} /> : '🔄'}
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title='Refresh Status'>
+                      <IconButton
+                        onClick={() => refreshServiceStatus(service.id)}
+                        color='info'
+                        size='small'
+                      >
+                        🔍
                       </IconButton>
                     </Tooltip>
                   </Box>
