@@ -206,4 +206,3 @@ Instead of local git testing, agents should:
 ---
 
 _Last updated: [2025-01-20 19:50 UTC] by Cursor AI_
-trigger
