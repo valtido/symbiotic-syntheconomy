@@ -176,7 +176,9 @@ async function handleAISyncLogUpdate(payload: GitHubWebhookPayload) {
 
     // 2. Read updated ai-sync-log.md
     const fs = require('fs').promises;
-    const logContent = await fs.readFile('ai-sync-log.md', 'utf-8');
+    const path = require('path');
+    const logPath = path.join(__dirname, '../../..', 'ai-sync-log.md');
+    const logContent = await fs.readFile(logPath, 'utf-8');
 
     // 3. Parse log for actions
     const actions = parseAISyncLog(logContent);
@@ -289,7 +291,9 @@ async function updateLocalStatus(payload: GitHubWebhookPayload) {
 
   // Save status to local file
   const fs = require('fs').promises;
-  await fs.writeFile('log/sync-status.json', JSON.stringify(status, null, 2));
+  const path = require('path');
+  const statusPath = path.join(__dirname, '../../..', 'log/sync-status.json');
+  await fs.writeFile(statusPath, JSON.stringify(status, null, 2));
 
   console.log('📝 Local sync status updated');
 }
