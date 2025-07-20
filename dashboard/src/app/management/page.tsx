@@ -49,23 +49,16 @@ const services: Omit<Service, 'status' | 'lastChecked'>[] = [
   {
     id: 'file-watcher',
     name: 'File Watcher',
-    description: 'TypeScript file watcher for auto-patching',
+    description:
+      'TypeScript file watcher for auto-patching (background process)',
     port: null,
     command: 'npx tsx watch scripts/fileWatcher.ts',
     directory: '.',
   },
   {
-    id: 'contracts',
-    name: 'Smart Contracts',
-    description: 'Hardhat development environment',
-    port: 3010,
-    command: 'npm run dev',
-    directory: 'contracts',
-  },
-  {
     id: 'patch-cleanup',
     name: 'Patch Cleanup',
-    description: 'Automatic patch cleanup service',
+    description: 'Automatic patch cleanup service (background process)',
     port: null,
     command: 'npx tsx scripts/cleanupPatches.ts',
     directory: '.',
@@ -196,9 +189,42 @@ export default function ManagementPage() {
       return { ...service, status: 'stopped', lastChecked: new Date() };
     }
 
-    // For services without ports (background processes), we can't easily check
-    console.log(`❓ ${service.name} has no port, cannot check status`);
-    return { ...service, status: 'unknown', lastChecked: new Date() };
+    // For services without ports (background processes), check if the process is running
+    console.log(`🔍 Checking if ${service.name} process is running`);
+    try {
+      const response = await fetch('/api/management/service', {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const serviceStatus = data.services.find(
+          (s: any) => s.serviceId === service.id,
+        );
+
+        if (serviceStatus && serviceStatus.running) {
+          console.log(
+            `✅ ${service.name} process is running (PID: ${serviceStatus.pid})`,
+          );
+          return {
+            ...service,
+            status: 'running',
+            lastChecked: new Date(),
+            pid: serviceStatus.pid,
+          };
+        } else {
+          console.log(`❌ ${service.name} process is not running`);
+          return { ...service, status: 'stopped', lastChecked: new Date() };
+        }
+      } else {
+        console.log(`❓ ${service.name} status check failed`);
+        return { ...service, status: 'unknown', lastChecked: new Date() };
+      }
+    } catch (error) {
+      console.log(`❓ ${service.name} has no port, cannot check status`);
+      return { ...service, status: 'unknown', lastChecked: new Date() };
+    }
   };
 
   const checkAllServices = async () => {
@@ -520,8 +546,11 @@ export default function ManagementPage() {
         <Box component='ul' sx={{ mt: 1, pl: 2 }}>
           <li>Backend API: Port 3006</li>
           <li>Frontend App: Port 3009</li>
-          <li>Smart Contracts: Port 3010</li>
         </Box>
+        <Typography variant='body2' color='text.secondary' sx={{ mt: 2 }}>
+          <strong>Note:</strong> File Watcher and Patch Cleanup are background
+          processes that don't require ports.
+        </Typography>
       </Box>
     </Box>
   );

@@ -47,15 +47,16 @@ export async function POST(request: NextRequest) {
 
 async function startService(serviceId: string, service: any) {
   try {
-    // Check if service is already running
-    if (runningProcesses.has(serviceId)) {
+    // Check if service is already running by looking for the actual process
+    const isRunning = await checkIfServiceRunning(serviceId, service);
+    if (isRunning) {
       return NextResponse.json(
         { error: 'Service is already running' },
         { status: 400 },
       );
     }
 
-    // Check if port is in use
+    // Check if port is in use (only for services with ports)
     if (service.port) {
       try {
         await execAsync(`lsof -i :${service.port}`);
@@ -139,15 +140,53 @@ async function startService(serviceId: string, service: any) {
   }
 }
 
+async function checkIfServiceRunning(
+  serviceId: string,
+  service: any,
+): Promise<boolean> {
+  try {
+    // For services with ports, check if the port is in use
+    if (service.port) {
+      try {
+        await execAsync(`lsof -i :${service.port}`);
+        return true; // Port is in use, service is running
+      } catch (error) {
+        return false; // Port is not in use
+      }
+    }
+
+    // For background processes, check if the command is running
+    const commandPattern = getCommandPattern(service.command);
+    try {
+      const { stdout } = await execAsync(
+        `ps aux | grep "${commandPattern}" | grep -v grep`,
+      );
+      return stdout.trim().length > 0;
+    } catch (error) {
+      return false;
+    }
+  } catch (error) {
+    console.error(`Error checking if service ${serviceId} is running:`, error);
+    return false;
+  }
+}
+
+function getCommandPattern(command: string): string {
+  // Extract the main command from the full command string
+  const parts = command.split(' ');
+  if (parts[0] === 'npx') {
+    return parts[1]; // For npx commands, use the package name
+  }
+  return parts[0]; // For other commands, use the first part
+}
+
 async function stopService(serviceId: string) {
   try {
     const childProcess = runningProcesses.get(serviceId);
 
     if (!childProcess) {
-      return NextResponse.json(
-        { error: 'Service is not running' },
-        { status: 400 },
-      );
+      // Try to find and kill the process by command pattern
+      return await killServiceByCommand(serviceId);
     }
 
     // Kill the process
@@ -167,6 +206,55 @@ async function stopService(serviceId: string) {
     });
   } catch (error) {
     console.error(`Error stopping service ${serviceId}:`, error);
+    return NextResponse.json(
+      {
+        error: `Failed to stop service: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function killServiceByCommand(serviceId: string) {
+  try {
+    // Get the service configuration to find the command
+    const services = [
+      { id: 'backend', command: 'npm run dev' },
+      { id: 'frontend', command: 'npm run dev' },
+      { id: 'file-watcher', command: 'npx tsx watch scripts/fileWatcher.ts' },
+      { id: 'patch-cleanup', command: 'npx tsx scripts/cleanupPatches.ts' },
+    ];
+
+    const service = services.find((s) => s.id === serviceId);
+    if (!service) {
+      return NextResponse.json({ error: 'Service not found' }, { status: 404 });
+    }
+
+    const commandPattern = getCommandPattern(service.command);
+
+    // Find and kill the process
+    const { stdout } = await execAsync(
+      `ps aux | grep "${commandPattern}" | grep -v grep`,
+    );
+
+    if (stdout.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Service is not running' },
+        { status: 400 },
+      );
+    }
+
+    // Kill the process
+    await execAsync(`pkill -f "${commandPattern}"`);
+
+    return NextResponse.json({
+      success: true,
+      message: `Service ${serviceId} stopped successfully`,
+    });
+  } catch (error) {
+    console.error(`Error killing service ${serviceId}:`, error);
     return NextResponse.json(
       {
         error: `Failed to stop service: ${
@@ -204,17 +292,72 @@ async function restartService(serviceId: string, service: any) {
 // Get status of all services
 export async function GET() {
   try {
-    const services = Array.from(runningProcesses.entries()).map(
-      ([serviceId, childProcess]) => ({
-        serviceId,
-        pid: childProcess.pid,
-        running: !childProcess.killed,
-      }),
-    );
+    const services = [
+      { id: 'backend', command: 'npm run dev', port: 3006 },
+      { id: 'frontend', command: 'npm run dev', port: 3009 },
+      {
+        id: 'file-watcher',
+        command: 'npx tsx watch scripts/fileWatcher.ts',
+        port: null,
+      },
+      {
+        id: 'patch-cleanup',
+        command: 'npx tsx scripts/cleanupPatches.ts',
+        port: null,
+      },
+    ];
+
+    const serviceStatuses: Array<{
+      serviceId: string;
+      pid?: number;
+      running: boolean;
+    }> = [];
+
+    for (const service of services) {
+      const childProcess = runningProcesses.get(service.id);
+
+      if (childProcess) {
+        // Service is managed by this API
+        serviceStatuses.push({
+          serviceId: service.id,
+          pid: childProcess.pid,
+          running: !childProcess.killed,
+        });
+      } else {
+        // Check if service is running externally
+        const isRunning = await checkIfServiceRunning(service.id, service);
+        if (isRunning) {
+          // Try to get the PID
+          try {
+            const commandPattern = getCommandPattern(service.command);
+            const { stdout } = await execAsync(
+              `ps aux | grep "${commandPattern}" | grep -v grep | awk '{print $2}' | head -1`,
+            );
+            const pid = stdout.trim();
+
+            serviceStatuses.push({
+              serviceId: service.id,
+              pid: pid ? parseInt(pid) : undefined,
+              running: true,
+            });
+          } catch (error) {
+            serviceStatuses.push({
+              serviceId: service.id,
+              running: true,
+            });
+          }
+        } else {
+          serviceStatuses.push({
+            serviceId: service.id,
+            running: false,
+          });
+        }
+      }
+    }
 
     return NextResponse.json({
-      services,
-      total: services.length,
+      services: serviceStatuses,
+      total: serviceStatuses.length,
     });
   } catch (error) {
     console.error('Error getting service status:', error);

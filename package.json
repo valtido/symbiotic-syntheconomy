@@ -31,7 +31,6 @@
     "dev:backend": "cd backend && PORT=3006 npm run dev",
     "dev:frontend": "cd frontend && PORT=3009 npm run dev",
     "dev:dashboard": "cd dashboard && npm run dev",
-    "dev:contracts": "cd contracts && PORT=3010 npm run dev",
     "watch:sync": "tsx watch scripts/fileWatcher.ts",
     "cleanup:patches": "tsx scripts/cleanupPatches.ts"
   },
