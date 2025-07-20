@@ -1,99 +1,97 @@
+// scripts/fileWatcher.ts
 import { watch } from 'fs';
 import { exec } from 'child_process';
 import path from 'path';
-import { sendDiscordNotification } from './notifyDiscord';
-import { cleanupOldPatches, updatePatchLog } from './cleanupPatches';
+import dotenv from 'dotenv';
+import fetch from 'node-fetch';
+dotenv.config();
 
-const watchFiles = ['ai-sync-log.md', 'rituals.json', 'tasks.md'];
-const absolutePaths = watchFiles.map((f) => path.resolve(f));
+const watchedFiles = [
+  path.resolve('ai-sync-log.md'),
+  path.resolve('rituals.json'),
+  path.resolve('tasks.md'),
+];
 
 console.log('🔍 File watcher active. Monitoring:');
-absolutePaths.forEach((p) => console.log(`   • ${p}`));
+watchedFiles.forEach((file) => console.log(`   • ${file}`));
 
-let debounceTimer = null;
-let lastTriggeredAt = 0;
-const debounceMs = 300;
+let debounceTimer: NodeJS.Timeout;
 
-absolutePaths.forEach((filePath) => {
+watchedFiles.forEach((filePath) => {
   watch(filePath, { persistent: true }, (eventType) => {
     if (eventType !== 'change') return;
 
-    const now = Date.now();
-    if (now - lastTriggeredAt < 1000) return; // Prevent rapid consecutive triggers
-
     if (debounceTimer) clearTimeout(debounceTimer);
-    // @ts-ignore
     debounceTimer = setTimeout(() => {
-      lastTriggeredAt = now;
-      console.log(`📝 Change detected in ${path.basename(filePath)}!`);
+      console.log('📝 File change detected! Triggering patch...');
       runAgentPatch();
-    }, debounceMs);
+    }, 300);
   });
 });
 
 function runAgentPatch() {
-  console.log('⚙️ Running: git pull && npm run ai:next-patch');
-
-  // First pull latest changes to detect remote AI agent commits
-  exec('git pull origin main', (pullErr, pullStdout, pullStderr) => {
-    if (pullErr) {
-      console.error(`❌ Git pull failed:\n${pullErr.message}`);
+  console.log('⚙️  Running: npm run ai:next-patch');
+  exec('npm run ai:next-patch', async (error, stdout, stderr) => {
+    if (error) {
+      console.error(`❌ Patch generation failed:\n${error.message}`);
       return;
     }
-    if (pullStderr) console.log(`ℹ️ Git pull stderr:\n${pullStderr}`);
-    if (pullStdout) console.log(`✅ Git pull output:\n${pullStdout}`);
+    if (stderr) {
+      console.error(`⚠️ STDERR:\n${stderr}`);
+    }
 
-    // Then run the AI patch generation
-    exec('npm run ai:next-patch', (err, stdout, stderr) => {
-      if (err) {
-        console.error(`❌ Patch generation failed:\n${err.message}`);
-        return;
+    console.log(`✅ Patch output:\n${stdout}`);
+
+    // Check if any changes exist before committing
+    exec('git diff --quiet', (diffErr) => {
+      if (diffErr) {
+        // Changes exist
+        const agent = detectAgent(stdout) ?? 'ChatGPT';
+        const commitMsg = `🤖 Auto-applied patch from ${agent} [AI]`;
+        exec(
+          `git add . && git commit -m "${commitMsg}" && git push`,
+          async (commitErr, commitOut, commitStderr) => {
+            if (commitErr) {
+              console.error(`❌ Git commit failed:\n${commitErr.message}`);
+            } else {
+              console.log(`🚀 Patch committed and pushed:\n${commitOut}`);
+              await sendDiscordNotification(
+                `${agent} pushed a patch to GitHub 🚀`,
+              );
+            }
+          },
+        );
+      } else {
+        console.log('ℹ️ No changes detected. Nothing to commit.');
       }
-      if (stderr) console.error(`⚠️ STDERR:\n${stderr}`);
-      if (stdout) console.log(`✅ Patch output:\n${stdout}`);
-
-      checkForGitChanges();
     });
   });
 }
 
-function checkForGitChanges() {
-  exec('git diff --quiet', (diffErr) => {
-    if (diffErr) {
-      commitAndPush();
-    } else {
-      console.log('ℹ️ No changes to commit.');
-    }
-  });
+function detectAgent(logOutput: string): string | null {
+  if (logOutput.includes('Cursor')) return 'Cursor';
+  if (logOutput.includes('Grok')) return 'Grok';
+  if (logOutput.includes('ChatGPT')) return 'ChatGPT';
+  return null;
 }
 
-async function commitAndPush() {
-  exec(
-    'git add . && git commit -m "🤖 Auto-applied patch from AI agent" && git push',
-    async (err, stdout, stderr) => {
-      if (err) {
-        console.error(`❌ Git commit/push failed:\n${err.message}`);
-        return;
-      }
-      if (stderr) console.error(`⚠️ Git STDERR:\n${stderr}`);
-      console.log(`🚀 Patch committed and pushed:\n${stdout}`);
+async function sendDiscordNotification(message: string) {
+  const url = process.env.DISCORD_WEBHOOK_URL;
+  if (!url) {
+    console.warn('⚠️ DISCORD_WEBHOOK_URL not defined.');
+    return;
+  }
 
-      // Clean up old patches after successful commit
-      try {
-        cleanupOldPatches();
-        updatePatchLog();
-        console.log('🧹 Patch cleanup completed');
-      } catch (cleanupError) {
-        console.error('⚠️ Patch cleanup failed:', cleanupError);
-      }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: message }),
+    });
 
-      await sendDiscordNotification({
-        agent: 'Cursor',
-        task: 'Patch Generation',
-        status: 'Success',
-        emoji: '🤖',
-        details: 'Patch saved and old patches cleaned up',
-      });
-    },
-  );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    console.log('📣 Discord notification sent successfully.');
+  } catch (err) {
+    console.error(`❌ Discord notification failed: ${err.message}`);
+  }
 }
