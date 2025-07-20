@@ -31,6 +31,7 @@ export function RitualSubmissionForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [lastRitualId, setLastRitualId] = useState<number | null>(null);
 
   const validateForm = (): boolean => {
     if (!formData.ritualName.trim()) {
@@ -79,6 +80,11 @@ export function RitualSubmissionForm() {
 
       const result = await response.json();
 
+      // Store the ritual ID for retry functionality
+      if (result.ritualId) {
+        setLastRitualId(result.ritualId);
+      }
+
       if (isRetry) {
         setRetryCount((prev) => prev + 1);
         setSuccess(`Ritual retry successful! Attempt ${retryCount + 1}`);
@@ -107,6 +113,60 @@ export function RitualSubmissionForm() {
 
   const handleRetry = () => {
     submitRitual(true);
+  };
+
+  const handleSmartContractRetry = async () => {
+    if (!lastRitualId) {
+      setError(
+        'No ritual ID available for retry. Please submit a ritual first.',
+      );
+      return;
+    }
+
+    setIsRetrying(true);
+    setError(null);
+
+    try {
+      console.log(
+        `🔁 Initiating smart contract retry for ritual ${lastRitualId}`,
+      );
+
+      const response = await fetch('/api/retry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ritualId: lastRitualId }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setRetryCount((prev) => prev + 1);
+        setSuccess(
+          `Smart contract retry successful! Ritual ${lastRitualId} retry completed.`,
+        );
+        console.log(
+          `✅ Smart contract retry successful for ritual ${lastRitualId}`,
+        );
+      } else {
+        setError(result.error || 'Smart contract retry failed');
+        console.log(
+          `❌ Smart contract retry failed for ritual ${lastRitualId}:`,
+          result.error,
+        );
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(errorMessage);
+      console.log(
+        `💥 Error during smart contract retry for ritual ${lastRitualId}:`,
+        err,
+      );
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,6 +275,18 @@ export function RitualSubmissionForm() {
             >
               {isSubmitting ? 'Submitting...' : 'Submit Ritual'}
             </Button>
+
+            {lastRitualId && (
+              <Button
+                variant='outlined'
+                onClick={handleSmartContractRetry}
+                disabled={isRetrying}
+                startIcon={isRetrying ? <CircularProgress size={20} /> : null}
+                color='secondary'
+              >
+                {isRetrying ? 'Retrying...' : 'Retry Ritual'}
+              </Button>
+            )}
 
             {retryCount > 0 && (
               <Typography variant='body2' color='text.secondary'>

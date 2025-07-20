@@ -442,4 +442,36 @@ contract SymbiosisPledge is Ownable, ReentrancyGuard, Pausable {
     function unpause() external onlyOwner {
         _unpause();
     }
+
+    /**
+     * @dev Retry a ritual submission
+     * @param ritualId The ritual ID to retry
+     * @return success Whether the retry was successful
+     */
+    function retryRitual(uint256 ritualId)
+        external
+        nonReentrant
+        whenNotPaused
+        returns (bool success)
+    {
+        // Validate ritual ID exists (basic validation)
+        require(ritualId > 0, "Invalid ritual ID");
+
+        // Emit event for retry attempt
+        emit PledgeCreated(
+            ritualId,
+            msg.sender,
+            "retry_ritual",
+            "ritual_retry",
+            "Ritual retry attempt",
+            0,
+            block.timestamp
+        );
+
+        // For now, return true to simulate successful retry
+        // In a real implementation, this would interact with the ritual submission contract
+        success = true;
+
+        return success;
+    }
 }
