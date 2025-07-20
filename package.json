@@ -33,6 +33,7 @@
     "simulate:ai": "npx tsx scripts/aiAgentSimulator.ts",
     "simulate:ai:fast": "npx tsx scripts/aiAgentSimulator.ts 1",
     "monitor:activity": "npx tsx scripts/monitorActivity.ts",
+    "monitor:robust": "npx tsx scripts/robustMonitor.ts",
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
     "configure:ai-agents": "npx tsx scripts/configureAIAgents.ts"
   },
