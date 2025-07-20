@@ -3,6 +3,10 @@ on:
   push:
     branches: [main]
 jobs:
+jobs:
+  append-log:
+    runs-on: ubuntu-latest
+    environment: ai  # 👈 uses your `ai` env for secrets
   sync-log:
     runs-on: ubuntu-latest
     steps:
