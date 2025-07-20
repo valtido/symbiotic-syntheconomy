@@ -3,7 +3,7 @@
 ## Current Status
 
 - ✅ Backend webhook endpoint: `/webhook/trigger-sync`
-- ✅ Manual trigger working: `curl -X POST http://localhost:3001/webhook/trigger-sync`
+- ✅ Manual trigger working: `curl -X POST http://localhost:3002/webhook/trigger-sync`
 - ✅ Path issues fixed in backend code
 - 🔧 Need to expose webhook publicly
 
@@ -13,7 +13,7 @@
 
 ```bash
 # In a new terminal window
-lt --port 3001 --subdomain grc-webhook
+lt --port 3002 --subdomain grc-webhook
 ```
 
 This will give you a public URL like: `https://grc-webhook.loca.lt`
