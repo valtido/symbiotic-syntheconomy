@@ -1,6 +1,7 @@
 import { watch } from 'fs';
 import { exec } from 'child_process';
 import path from 'path';
+import { sendDiscordNotification } from './notifyDiscord';
 
 const watchFiles = ['ai-sync-log.md', 'rituals.json', 'tasks.md'];
 const absolutePaths = watchFiles.map((f) => path.resolve(f));
@@ -54,16 +55,23 @@ function checkForGitChanges() {
   });
 }
 
-function commitAndPush() {
+async function commitAndPush() {
   exec(
     'git add . && git commit -m "🤖 Auto-applied patch from AI agent" && git push',
-    (err, stdout, stderr) => {
+    async (err, stdout, stderr) => {
       if (err) {
         console.error(`❌ Git commit/push failed:\n${err.message}`);
         return;
       }
       if (stderr) console.error(`⚠️ Git STDERR:\n${stderr}`);
       console.log(`🚀 Patch committed and pushed:\n${stdout}`);
+      await sendDiscordNotification({
+        agent: 'Cursor',
+        task: 'Patch Generation',
+        status: 'Success',
+        emoji: '🤖',
+        details: 'Patch saved to /patches/xyz.patch',
+      });
     },
   );
 }
