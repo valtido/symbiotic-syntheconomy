@@ -25,7 +25,7 @@ Update your `.env` file:
 
 ```bash
 # Replace the placeholder with your actual secret
-GITHUB_WEBHOOK_SECRET=your_actual_secret_here
+GH_WEBHOOK_SECRET=your_actual_secret_here
 ```
 
 ### 3. Configure GitHub Webhook
@@ -45,7 +45,7 @@ GITHUB_WEBHOOK_SECRET=your_actual_secret_here
 
 ## Development Mode
 
-When `GITHUB_WEBHOOK_SECRET` is not configured or set to the placeholder value, the webhook runs in development mode:
+When `GH_WEBHOOK_SECRET` is not configured or set to the placeholder value, the webhook runs in development mode:
 
 - ✅ Accepts all webhook requests
 - ⚠️ No signature verification
@@ -56,7 +56,7 @@ When `GITHUB_WEBHOOK_SECRET` is not configured or set to the placeholder value, 
 
 For production deployment:
 
-1. **Always** set a strong `GITHUB_WEBHOOK_SECRET`
+1. **Always** set a strong `GH_WEBHOOK_SECRET`
 2. **Use HTTPS** for webhook URLs
 3. **Monitor** webhook deliveries in GitHub
 4. **Log** all webhook activities

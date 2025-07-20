@@ -53,7 +53,7 @@ This project uses AI agent coordination via GitHub webhooks and shared logs to m
 
 - **Endpoint**: `https://grc-webhook.loca.lt/webhook/github`
 - **Events**: Repository pushes trigger coordination events
-- **Security**: Signature verification with environment variable `GITHUB_WEBHOOK_SECRET`
+- **Security**: Signature verification with environment variable `GH_WEBHOOK_SECRET`
 - **Status**: Real-time AI agent synchronization
 
 #### 3. **Agent Communication Flow**
@@ -101,8 +101,8 @@ curl -X POST http://localhost:3001/webhook/github \
 
 ```bash
 # Required for AI coordination
-GITHUB_WEBHOOK_SECRET=your_webhook_secret_here
-GITHUB_TOKEN=your_github_pat_token
+GH_WEBHOOK_SECRET=your_webhook_secret_here
+GH_TOKEN=your_github_pat_token
 ```
 
 #### 7. **Troubleshooting AI Coordination**

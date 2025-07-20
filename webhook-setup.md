@@ -52,7 +52,7 @@ ngrok http 3001
 Add the webhook secret to your `.env` file:
 
 ```bash
-GITHUB_WEBHOOK_SECRET=your_webhook_secret_here
+GH_WEBHOOK_SECRET=your_webhook_secret_here
 ```
 
 ## Step 4: Test the Webhook
@@ -83,7 +83,7 @@ Check the backend logs for webhook activity:
 
 1. **Webhook not receiving events**: Check the payload URL is accessible
 2. **SSL errors**: Ensure the tunnel URL uses HTTPS
-3. **Secret verification fails**: Check GITHUB_WEBHOOK_SECRET matches
+3. **Secret verification fails**: Check GH_WEBHOOK_SECRET matches
 4. **File not found**: Ensure ai-sync-log.md exists in the root directory
 
 ### Testing Commands:

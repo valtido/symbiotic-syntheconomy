@@ -6,24 +6,23 @@ import { Octokit } from '@octokit/rest';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const { GITHUB_REPO, GITHUB_BRANCH, GITHUB_FILE_PATH, GITHUB_PAT } =
-  process.env;
+const { GH_REPO, GH_BRANCH, GH_FILE_PATH, GH_PAT } = process.env;
 
-if (!GITHUB_PAT) throw new Error('Missing GITHUB_PAT');
-if (!GITHUB_REPO || !GITHUB_BRANCH || !GITHUB_FILE_PATH)
+if (!GH_PAT) throw new Error('Missing GH_PAT');
+if (!GH_REPO || !GH_BRANCH || !GH_FILE_PATH)
   throw new Error('Missing GitHub config');
 
-const octokit = new Octokit({ auth: GITHUB_PAT });
+const octokit = new Octokit({ auth: GH_PAT });
 
-const [owner, repo] = GITHUB_REPO.split('/');
-const filePath = GITHUB_FILE_PATH;
+const [owner, repo] = GH_REPO.split('/');
+const filePath = GH_FILE_PATH;
 
 async function appendLogEntry(entry: string) {
   const { data: fileData } = await octokit.repos.getContent({
     owner,
     repo,
     path: filePath,
-    ref: GITHUB_BRANCH,
+    ref: GH_BRANCH,
   });
 
   const sha = (fileData as any).sha;
@@ -40,7 +39,7 @@ async function appendLogEntry(entry: string) {
     message: `🤖 Append AI log entry [${new Date().toISOString()}]`,
     content: Buffer.from(newContent).toString('base64'),
     sha,
-    branch: GITHUB_BRANCH,
+    branch: GH_BRANCH,
   });
 
   console.log('✅ Log entry appended successfully.');

@@ -1,7 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { appendFile } from 'fs/promises';
 
-const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+const octokit = new Octokit({ auth: process.env.GH_TOKEN });
 
 export async function syncWithGitHub() {
   const { data } = await octokit.repos.getContent({

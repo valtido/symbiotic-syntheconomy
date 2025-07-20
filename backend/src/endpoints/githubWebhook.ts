@@ -140,14 +140,12 @@ export default async function githubWebhookRoutes(fastify: FastifyInstance) {
 
 // Verify GitHub webhook signature
 function verifyGitHubSignature(payload: any, signature: string): boolean {
-  const secret = process.env['GITHUB_WEBHOOK_SECRET'];
+  const secret = process.env['GH_WEBHOOK_SECRET'];
   if (!secret || secret === 'your_github_webhook_secret_here') {
     console.warn(
-      '⚠️ GITHUB_WEBHOOK_SECRET not configured - running in development mode',
+      '⚠️ GH_WEBHOOK_SECRET not configured - running in development mode',
     );
-    console.warn(
-      '📝 To configure: Set GITHUB_WEBHOOK_SECRET in your .env file',
-    );
+    console.warn('📝 To configure: Set GH_WEBHOOK_SECRET in your .env file');
     console.warn(
       '🔗 GitHub webhook setup: https://github.com/settings/webhooks',
     );
