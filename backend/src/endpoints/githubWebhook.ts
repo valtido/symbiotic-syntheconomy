@@ -2,6 +2,8 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -27,6 +29,36 @@ interface GitHubWebhookPayload {
   sender: {
     login: string;
   };
+}
+
+const processedCommitsFile = path.join(
+  process.cwd(),
+  'patches',
+  'processed-commits.json',
+);
+
+function loadProcessedCommits(): Set<string> {
+  try {
+    if (fs.existsSync(processedCommitsFile)) {
+      const data = fs.readFileSync(processedCommitsFile, 'utf-8');
+      return new Set(JSON.parse(data));
+    }
+  } catch (error) {
+    console.warn('Could not load processed commits file:', error);
+  }
+  return new Set();
+}
+
+function saveProcessedCommits(commits: Set<string>) {
+  try {
+    const patchesDir = path.dirname(processedCommitsFile);
+    if (!fs.existsSync(patchesDir)) {
+      fs.mkdirSync(patchesDir, { recursive: true });
+    }
+    fs.writeFileSync(processedCommitsFile, JSON.stringify(Array.from(commits)));
+  } catch (error) {
+    console.warn('Could not save processed commits file:', error);
+  }
 }
 
 export default async function githubWebhookRoutes(fastify: FastifyInstance) {
@@ -80,17 +112,34 @@ export default async function githubWebhookRoutes(fastify: FastifyInstance) {
           return reply.send({ message: 'No AI agent commits found' });
         }
 
-        fastify.log.info(
-          `Found ${aiAgentCommits.length} AI agent commits, triggering patch generation`,
+        // Deduplication: Check if commits have already been processed
+        const processedCommits = loadProcessedCommits();
+        const newCommits = aiAgentCommits.filter(
+          (commit) => !processedCommits.has(commit.id),
         );
 
-        // Trigger patch generation for AI agent commits
-        await triggerAIPatchGeneration(fastify, aiAgentCommits);
+        if (newCommits.length === 0) {
+          fastify.log.info('All AI agent commits have already been processed');
+          return reply.send({ message: 'All commits already processed' });
+        }
+
+        // Mark commits as processed
+        newCommits.forEach((commit) => processedCommits.add(commit.id));
+        saveProcessedCommits(processedCommits);
+
+        fastify.log.info(
+          `Found ${newCommits.length} new AI agent commits (${
+            aiAgentCommits.length - newCommits.length
+          } already processed), triggering patch generation`,
+        );
+
+        // Trigger patch generation for new AI agent commits only
+        await triggerAIPatchGeneration(fastify, newCommits);
 
         return reply.send({
           success: true,
-          message: `Processed ${aiAgentCommits.length} AI agent commits`,
-          commits: aiAgentCommits.map((c) => ({
+          message: `Processed ${newCommits.length} new AI agent commits`,
+          commits: newCommits.map((c) => ({
             id: c.id,
             message: c.message,
           })),
