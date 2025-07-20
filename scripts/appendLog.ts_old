@@ -1,0 +1,62 @@
+// scripts/appendLog.ts (Updated to use GitHub App auth)
+
+import { Octokit } from '@octokit/core';
+import { createAppAuth } from '@octokit/auth-app';
+import dotenv from 'dotenv';
+import { readFileSync } from 'fs';
+import { encode } from 'js-base64';
+
+dotenv.config();
+
+const appId = process.env.GH_APP_ID!;
+const privateKey = readFileSync('.github/gh-key.pem', 'utf8');
+const installationId = process.env.GH_INSTALLATION_ID!;
+
+const octokit = new Octokit({
+  authStrategy: createAppAuth,
+  auth: {
+    appId,
+    privateKey,
+    installationId,
+  },
+});
+
+const owner = 'valtido';
+const repo = 'symbiotic-syntheconomy';
+const path = 'ai-sync-log.md';
+const branch = 'main';
+
+async function appendLogEntry() {
+  const newLog = `\n\n### [${new Date().toISOString()}] AI Log Entry\n- Synced by GitHub App`;
+
+  const { data: file } = await octokit.request(
+    'GET /repos/{owner}/{repo}/contents/{path}',
+    {
+      owner,
+      repo,
+      path,
+      ref: branch,
+    },
+  );
+
+  if (!('content' in file) || typeof file.content !== 'string') {
+    throw new Error('Could not find file content in GitHub response.');
+  }
+
+  const existingContent = Buffer.from(file.content, 'base64').toString();
+  const updatedContent = encode(existingContent + newLog);
+
+  await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
+    owner,
+    repo,
+    path,
+    message: `🤖 GitHub App AI sync log update [${new Date().toISOString()}]`,
+    content: updatedContent,
+    sha: file.sha,
+    branch,
+  });
+
+  console.log('✅ Log entry committed using GitHub App');
+}
+
+appendLogEntry().catch(console.error);
