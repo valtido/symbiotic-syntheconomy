@@ -38,7 +38,11 @@ const fastify = Fastify({
 // Register plugins
 async function registerPlugins() {
   await fastify.register(cors, {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3007', // Dashboard
+      'http://localhost:3009', // Frontend (new port)
+    ],
     credentials: true,
   });
 
