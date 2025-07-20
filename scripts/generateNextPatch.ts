@@ -4,25 +4,49 @@ import fs from 'fs';
 import path from 'path';
 
 const patchesDir = path.resolve('patches');
-const files = fs.readdirSync(patchesDir).filter((f) => f.endsWith('.patch'));
+const patchPrefix = 'generated-';
 
-if (files.length === 0) {
-  console.log('✅ No patches to apply.');
-  process.exit(0);
+function generatePatch() {
+  const timestamp = Date.now();
+  const patchFile = `patches/${patchPrefix}${timestamp}.patch`;
+
+  try {
+    execSync(`git diff > ${patchFile}`);
+    const content = fs.readFileSync(patchFile, 'utf-8').trim();
+
+    if (!content) {
+      fs.unlinkSync(patchFile);
+      console.log('✅ No changes to patch.');
+      return null;
+    }
+
+    console.log(`📦 Patch generated: ${patchFile}`);
+    return patchFile;
+  } catch (e) {
+    console.error('❌ Patch generation failed:', e.message);
+    return null;
+  }
 }
 
-const patchToApply = files[files.length - 1]; // use latest
-const patchPath = path.join(patchesDir, patchToApply);
+function applyAndCommitPatch(patchFile: string) {
+  try {
+    execSync(`git apply "${patchFile}"`, { stdio: 'inherit' });
+    console.log(`✅ Patch applied: ${patchFile}`);
 
-console.log(`🧩 Applying patch: ${patchToApply}`);
+    execSync(`git add .`);
+    execSync(`git commit -m "🤖 Auto-applied patch from AI agent [AI]"`);
+    execSync(`git push`);
+    console.log('🚀 Patch committed and pushed to GitHub.');
 
-try {
-  execSync(`git apply "${patchPath}"`, { stdio: 'inherit' });
-  console.log('✅ Patch applied.');
+    fs.unlinkSync(patchFile);
+    console.log('🧹 Patch file cleaned up.');
+  } catch (e) {
+    console.error('❌ Failed to apply or commit patch:', e.message);
+  }
+}
 
-  // Optional: remove the patch after applying
-  fs.unlinkSync(patchPath);
-  console.log('🧹 Cleaned up patch file.');
-} catch (e) {
-  console.error('❌ Failed to apply patch:', e.message);
+// Main
+const patchFile = generatePatch();
+if (patchFile) {
+  applyAndCommitPatch(patchFile);
 }

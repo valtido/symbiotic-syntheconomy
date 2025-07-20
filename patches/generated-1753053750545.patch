@@ -1,0 +1,78 @@
+diff --git a/ai-sync-log.md b/ai-sync-log.md
+index d0efd9c..3e0e74f 100644
+--- a/ai-sync-log.md
++++ b/ai-sync-log.md
+@@ -208,3 +208,4 @@ Instead of local git testing, agents should:
+ _Last updated: [2025-01-20 19:50 UTC] by Cursor AI_
+ ping Mon Jul 21 00:15:33 BST 2025
+ retry Mon Jul 21 00:20:19 BST 2025
++trigger patch Mon Jul 21 00:22:29 BST 2025
+diff --git a/scripts/generateNextPatch.ts b/scripts/generateNextPatch.ts
+index def8509..eb1e909 100644
+--- a/scripts/generateNextPatch.ts
++++ b/scripts/generateNextPatch.ts
+@@ -4,25 +4,49 @@ import fs from 'fs';
+ import path from 'path';
+ 
+ const patchesDir = path.resolve('patches');
+-const files = fs.readdirSync(patchesDir).filter((f) => f.endsWith('.patch'));
++const patchPrefix = 'generated-';
+ 
+-if (files.length === 0) {
+-  console.log('✅ No patches to apply.');
+-  process.exit(0);
++function generatePatch() {
++  const timestamp = Date.now();
++  const patchFile = `patches/${patchPrefix}${timestamp}.patch`;
++
++  try {
++    execSync(`git diff > ${patchFile}`);
++    const content = fs.readFileSync(patchFile, 'utf-8').trim();
++
++    if (!content) {
++      fs.unlinkSync(patchFile);
++      console.log('✅ No changes to patch.');
++      return null;
++    }
++
++    console.log(`📦 Patch generated: ${patchFile}`);
++    return patchFile;
++  } catch (e) {
++    console.error('❌ Patch generation failed:', e.message);
++    return null;
++  }
+ }
+ 
+-const patchToApply = files[files.length - 1]; // use latest
+-const patchPath = path.join(patchesDir, patchToApply);
++function applyAndCommitPatch(patchFile: string) {
++  try {
++    execSync(`git apply "${patchFile}"`, { stdio: 'inherit' });
++    console.log(`✅ Patch applied: ${patchFile}`);
+ 
+-console.log(`🧩 Applying patch: ${patchToApply}`);
++    execSync(`git add .`);
++    execSync(`git commit -m "🤖 Auto-applied patch from AI agent [AI]"`);
++    execSync(`git push`);
++    console.log('🚀 Patch committed and pushed to GitHub.');
+ 
+-try {
+-  execSync(`git apply "${patchPath}"`, { stdio: 'inherit' });
+-  console.log('✅ Patch applied.');
++    fs.unlinkSync(patchFile);
++    console.log('🧹 Patch file cleaned up.');
++  } catch (e) {
++    console.error('❌ Failed to apply or commit patch:', e.message);
++  }
++}
+ 
+-  // Optional: remove the patch after applying
+-  fs.unlinkSync(patchPath);
+-  console.log('🧹 Cleaned up patch file.');
+-} catch (e) {
+-  console.error('❌ Failed to apply patch:', e.message);
++// Main
++const patchFile = generatePatch();
++if (patchFile) {
++  applyAndCommitPatch(patchFile);
+ }
