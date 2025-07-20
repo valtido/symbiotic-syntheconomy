@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { spawn, exec } from 'child_process';
 import { promisify } from 'util';
 import { platform } from 'os';
+import { resolve } from 'path';
 
 const execAsync = promisify(exec);
 
@@ -67,18 +68,25 @@ async function startService(serviceId: string, service: any) {
       }
     }
 
+    // Get absolute path to project root (two levels up from dashboard)
+    const projectRoot = resolve(process.cwd(), '..', '..');
+    const serviceDir = resolve(projectRoot, service.directory);
+
+    console.log(`Starting service ${serviceId} in directory: ${serviceDir}`);
+    console.log(`Command: ${service.command}`);
+
     // Determine shell based on platform
     const shell = platform() === 'win32' ? 'cmd.exe' : '/bin/bash';
     const shellArgs = platform() === 'win32' ? ['/c'] : ['-c'];
 
-    // Start the service
-    const childProcess = spawn(service.command, [], {
-      cwd: service.directory,
+    // Start the service using shell execution
+    const childProcess = spawn(shell, [...shellArgs, service.command], {
+      cwd: serviceDir,
       stdio: 'pipe',
-      shell: false,
       env: {
         ...process.env,
         PORT: service.port?.toString() || '',
+        NODE_ENV: 'development',
       },
     });
 
@@ -106,7 +114,7 @@ async function startService(serviceId: string, service: any) {
     });
 
     // Wait a moment to see if the process starts successfully
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     if (childProcess.killed) {
       runningProcesses.delete(serviceId);
