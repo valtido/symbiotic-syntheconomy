@@ -121,6 +121,14 @@ export default async function githubWebhookRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Invalid action' });
       } catch (error) {
         fastify.log.error('Manual sync error:', error);
+        fastify.log.error(
+          'Error details:',
+          error instanceof Error ? error.message : String(error),
+        );
+        fastify.log.error(
+          'Error stack:',
+          error instanceof Error ? error.stack : 'No stack trace',
+        );
         return reply.status(500).send({ error: 'Internal server error' });
       }
     },
@@ -134,12 +142,30 @@ async function triggerAIPatchGeneration(
   try {
     fastify.log.info('Starting AI patch generation...');
 
+    // Change to project root directory
+    const projectRoot = process.cwd();
+    fastify.log.info(`Working directory: ${projectRoot}`);
+
     // Pull latest changes
-    await execAsync('git pull origin main');
-    fastify.log.info('Git pull completed');
+    fastify.log.info('Pulling latest changes...');
+    const { stdout: pullOutput, stderr: pullError } = await execAsync(
+      'git pull origin main',
+      { cwd: projectRoot },
+    );
+
+    if (pullError) {
+      fastify.log.warn('Git pull stderr:', pullError);
+    }
+    fastify.log.info('Git pull completed:', pullOutput);
 
     // Run the AI patch generation
-    const { stdout, stderr } = await execAsync('npm run ai:next-patch');
+    fastify.log.info('Running AI patch generation...');
+    const { stdout, stderr } = await execAsync(
+      'npx tsx scripts/generateNextPatch.ts',
+      {
+        cwd: projectRoot,
+      },
+    );
 
     if (stderr) {
       fastify.log.warn('AI patch generation stderr:', stderr);
@@ -148,15 +174,20 @@ async function triggerAIPatchGeneration(
     fastify.log.info('AI patch generation completed:', stdout);
 
     // Check if any patches were generated
-    const { stdout: patchStatus } = await execAsync('git status --porcelain');
+    const { stdout: patchStatus } = await execAsync('git status --porcelain', {
+      cwd: projectRoot,
+    });
 
     if (patchStatus.trim()) {
       fastify.log.info('Patches detected, committing and pushing...');
 
       // Commit and push patches
-      await execAsync('git add .');
-      await execAsync('git commit -m "🤖 Auto-patch: AI agent sync [webhook]"');
-      await execAsync('git push origin main');
+      await execAsync('git add .', { cwd: projectRoot });
+      await execAsync(
+        'git commit -m "🤖 Auto-patch: AI agent sync [webhook]"',
+        { cwd: projectRoot },
+      );
+      await execAsync('git push origin main', { cwd: projectRoot });
 
       fastify.log.info('Patches committed and pushed successfully');
     } else {
@@ -164,6 +195,14 @@ async function triggerAIPatchGeneration(
     }
   } catch (error) {
     fastify.log.error('Error in AI patch generation:', error);
-    throw error;
+    // Don't throw error, just log it and continue
+    fastify.log.error(
+      'Error details:',
+      error instanceof Error ? error.message : String(error),
+    );
+    fastify.log.error(
+      'Error stack:',
+      error instanceof Error ? error.stack : 'No stack trace',
+    );
   }
 }
