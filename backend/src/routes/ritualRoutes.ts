@@ -288,18 +288,34 @@ export async function ritualRoutes(fastify: FastifyInstance) {
   // Retry ritual endpoint
   fastify.post(
     '/retry',
-    retryRitualSchema,
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const data = await request.file();
-        const formData = data?.fields || {};
 
-        // Parse form data
-        const bioregionId = data?.fields.bioregionId?.value as string;
-        const ritualName = data?.fields.ritualName?.value as string;
-        const description = data?.fields.description?.value as string;
-        const culturalContext = data?.fields.culturalContext?.value as string;
-        const originalRitualId = data?.fields.originalRitualId?.value as string;
+        // Parse form data - handle case where no file is provided
+        let bioregionId = '',
+          ritualName = '',
+          description = '',
+          culturalContext = '',
+          originalRitualId = '';
+
+        if (data) {
+          bioregionId = (data.fields.bioregionId?.value as string) || '';
+          ritualName = (data.fields.ritualName?.value as string) || '';
+          description = (data.fields.description?.value as string) || '';
+          culturalContext =
+            (data.fields.culturalContext?.value as string) || '';
+          originalRitualId =
+            (data.fields.originalRitualId?.value as string) || '';
+        } else {
+          // If no file, try to get form data from request body
+          const body = request.body as any;
+          bioregionId = body?.bioregionId || '';
+          ritualName = body?.ritualName || '';
+          description = body?.description || '';
+          culturalContext = body?.culturalContext || '';
+          originalRitualId = body?.originalRitualId || '';
+        }
 
         // Validate required fields
         if (!bioregionId || !ritualName || !originalRitualId) {
