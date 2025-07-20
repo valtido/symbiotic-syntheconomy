@@ -24,7 +24,13 @@ A decentralized simulation platform for bioregional ritual submission and valida
 # Install all dependencies
 npm run install:all
 
-# Start development servers
+# Start individual services
+npm run dev:backend    # Backend API (port 3006)
+npm run dev:frontend   # Frontend App (port 3000)
+npm run dev:dashboard  # Service Management Dashboard (port 3007)
+npm run dev:contracts  # Smart Contracts (port 3008)
+
+# Or start all services
 npm run dev
 
 # Build all components
@@ -137,9 +143,10 @@ GH_TOKEN=your_github_pat_token
 ## 📁 Project Structure
 
 ```
-├── backend/           # Fastify API server
-├── frontend/          # Next.js web application
-├── contracts/         # Solidity smart contracts
+├── backend/           # Fastify API server (port 3006)
+├── frontend/          # Next.js web application (port 3000)
+├── dashboard/         # Service Management Dashboard (port 3007)
+├── contracts/         # Solidity smart contracts (port 3008)
 ├── schemas/           # Project requirements and schemas
 └── docs/             # Documentation
 ```
@@ -159,6 +166,13 @@ GH_TOKEN=your_github_pat_token
 - Real-time validation feedback
 - Bioregion selection interface
 - DAO governance dashboard
+
+### Dashboard (Service Management)
+
+- Service monitoring and control
+- Real-time health checking
+- Port management and allocation
+- Bulk service operations
 
 ### Smart Contracts (Base testnet)
 
