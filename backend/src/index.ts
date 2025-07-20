@@ -127,7 +127,7 @@ async function start() {
     await registerRoutes();
     await initializeServices();
 
-    const port = parseInt(process.env.PORT || '3001');
+    const port = parseInt(process.env.PORT || '3006');
     const host = process.env.HOST || '0.0.0.0';
 
     await fastify.listen({ port, host });

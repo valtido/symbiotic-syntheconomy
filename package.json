@@ -27,7 +27,12 @@
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
     "watch:sync": "npx tsx scripts/fileWatcher.ts",
     "cleanup:patches": "npx tsx scripts/cleanupPatches.ts",
-    "webhook:test": "curl -X POST http://localhost:3002/webhook/trigger-sync -H \"Content-Type: application/json\" -d '{\"action\":\"test\"}'"
+    "webhook:test": "curl -X POST http://localhost:3002/webhook/trigger-sync -H \"Content-Type: application/json\" -d '{\"action\":\"test\"}'",
+    "dev:backend": "cd backend && PORT=3006 npm run dev",
+    "dev:frontend": "cd frontend && PORT=3007 npm run dev",
+    "dev:contracts": "cd contracts && npm run dev",
+    "watch:sync": "tsx watch scripts/fileWatcher.ts",
+    "cleanup:patches": "tsx scripts/cleanupPatches.ts"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
