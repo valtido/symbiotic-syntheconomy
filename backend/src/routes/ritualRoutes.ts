@@ -102,6 +102,73 @@ const getRitualSchema = {
   },
 };
 
+const retryRitualSchema = {
+  schema: {
+    description: 'Retry a failed ritual submission',
+    tags: ['rituals'],
+    consumes: ['multipart/form-data'],
+    body: {
+      type: 'object',
+      properties: {
+        ritualFile: {
+          type: 'string',
+          format: 'binary',
+          description: 'Ritual file (.grc format)',
+        },
+        bioregionId: {
+          type: 'string',
+          description: 'Bioregion identifier',
+        },
+        ritualName: {
+          type: 'string',
+          description: 'Name of the ritual',
+        },
+        description: {
+          type: 'string',
+          description: 'Ritual description',
+        },
+        culturalContext: {
+          type: 'string',
+          description: 'Cultural context and background',
+        },
+        originalRitualId: {
+          type: 'string',
+          description: 'ID of the original failed ritual',
+        },
+      },
+      required: ['bioregionId', 'ritualName', 'originalRitualId'],
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean' },
+          ritualId: { type: 'string' },
+          ipfsHash: { type: 'string' },
+          transactionHash: { type: 'string' },
+          retryCount: { type: 'number' },
+          validation: {
+            type: 'object',
+            properties: {
+              esepScore: { type: 'number' },
+              cedaScore: { type: 'number' },
+              isApproved: { type: 'boolean' },
+              feedback: { type: 'array', items: { type: 'string' } },
+            },
+          },
+        },
+      },
+      400: {
+        type: 'object',
+        properties: {
+          error: { type: 'string' },
+          details: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
 export async function ritualRoutes(fastify: FastifyInstance) {
   const ritualService = new RitualService();
   const esepFilter = new ESEPFilter();
@@ -213,6 +280,163 @@ export async function ritualRoutes(fastify: FastifyInstance) {
         return reply.status(500).send({
           error: 'Internal server error',
           details: 'Failed to process ritual submission',
+        });
+      }
+    },
+  );
+
+  // Retry ritual endpoint
+  fastify.post(
+    '/retry',
+    retryRitualSchema,
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const data = await request.file();
+        const formData = data?.fields || {};
+
+        // Parse form data
+        const bioregionId = data?.fields.bioregionId?.value as string;
+        const ritualName = data?.fields.ritualName?.value as string;
+        const description = data?.fields.description?.value as string;
+        const culturalContext = data?.fields.culturalContext?.value as string;
+        const originalRitualId = data?.fields.originalRitualId?.value as string;
+
+        // Validate required fields
+        if (!bioregionId || !ritualName || !originalRitualId) {
+          return reply.status(400).send({
+            error: 'Missing required fields',
+            details:
+              'bioregionId, ritualName, and originalRitualId are required',
+          });
+        }
+
+        // Check if original ritual exists and was failed
+        const originalRitual = await ritualService.getRitualById(
+          originalRitualId,
+        );
+        if (!originalRitual) {
+          return reply.status(404).send({
+            error: 'Original ritual not found',
+            details: `No ritual found with ID: ${originalRitualId}`,
+          });
+        }
+
+        // Read ritual content if file is provided
+        let ritualText = '';
+        if (data && data.filename?.endsWith('.grc')) {
+          const ritualContent = await data.toBuffer();
+          ritualText = ritualContent.toString('utf-8');
+        } else {
+          // Use description as ritual content if no file provided
+          ritualText = description || ritualName;
+        }
+
+        // Run AI validation filters with enhanced error handling
+        let esepResult, cedaResult;
+        try {
+          esepResult = await esepFilter.validate(ritualText);
+        } catch (error) {
+          fastify.log.error('ESEP validation error:', error);
+          esepResult = {
+            score: 0.5,
+            feedback: ['ESEP validation failed, using default score'],
+          };
+        }
+
+        try {
+          cedaResult = await cedaFilter.validate(ritualText);
+        } catch (error) {
+          fastify.log.error('CEDA validation error:', error);
+          cedaResult = {
+            score: 2,
+            feedback: ['CEDA validation failed, using default score'],
+          };
+        }
+
+        // Determine approval status
+        const isApproved = esepResult.score <= 0.7 && cedaResult.score >= 2;
+
+        // Store ritual metadata on IPFS
+        const metadata = {
+          name: ritualName,
+          bioregionId,
+          description,
+          culturalContext,
+          content: ritualText,
+          validation: {
+            esepScore: esepResult.score,
+            cedaScore: cedaResult.score,
+            isApproved,
+            feedback: [...esepResult.feedback, ...cedaResult.feedback],
+          },
+          submittedAt: new Date().toISOString(),
+          isRetry: true,
+          originalRitualId,
+        };
+
+        const ipfsHash = await fastify.ipfs.storeMetadata(metadata);
+
+        // Log retry transaction on blockchain
+        const transactionHash = await fastify.blockchain.logRitualSubmission({
+          ritualId: `ritual_retry_${Date.now()}`,
+          bioregionId,
+          ipfsHash,
+          esepScore: esepResult.score,
+          cedaScore: cedaResult.score,
+          isApproved,
+          isRetry: true,
+          originalRitualId,
+        });
+
+        // Store retry ritual in database
+        const ritualId = await ritualService.createRitual({
+          name: `${ritualName} (Retry)`,
+          bioregionId,
+          ipfsHash,
+          transactionHash,
+          validation: {
+            esepScore: esepResult.score,
+            cedaScore: cedaResult.score,
+            isApproved,
+          },
+          metadata: {
+            isRetry: true,
+            originalRitualId,
+            retryCount: (originalRitual.metadata?.retryCount || 0) + 1,
+          },
+        });
+
+        // Update original ritual with retry information
+        await ritualService.updateRitual(originalRitualId, {
+          metadata: {
+            ...originalRitual.metadata,
+            lastRetryAt: new Date().toISOString(),
+            retryCount: (originalRitual.metadata?.retryCount || 0) + 1,
+          },
+        });
+
+        fastify.log.info(
+          `Ritual retry successful: ${ritualId} (original: ${originalRitualId})`,
+        );
+
+        return reply.send({
+          success: true,
+          ritualId,
+          ipfsHash,
+          transactionHash,
+          retryCount: (originalRitual.metadata?.retryCount || 0) + 1,
+          validation: {
+            esepScore: esepResult.score,
+            cedaScore: cedaResult.score,
+            isApproved,
+            feedback: [...esepResult.feedback, ...cedaResult.feedback],
+          },
+        });
+      } catch (error) {
+        fastify.log.error('Error retrying ritual:', error);
+        return reply.status(500).send({
+          error: 'Internal server error',
+          details: 'Failed to process ritual retry',
         });
       }
     },
