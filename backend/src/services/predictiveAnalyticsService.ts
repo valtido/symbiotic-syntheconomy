@@ -1,206 +1,226 @@
-// Predictive Analytics Service for Ritual Trends and Community Behavior Analysis
-import { injectable, inject } from 'tsyringe';
+import { Injectable, Logger } from '@nestjs/common';
 import * as tf from '@tensorflow/tfjs-node';
-import { TimeSeriesData, RitualTrend, PredictionResult, CommunityBehavior } from '../models/analytics';
-import { DataProcessor } from './dataProcessorService';
-import { Logger } from '../utils/logger';
+import * as fs from 'fs';
+import * as path from 'path';
+import { RitualData, CommunityBehavior, CulturalImpact } from '../models/ritual.model';
 
-@injectable()
+@Injectable()
 export class PredictiveAnalyticsService {
-  private model: tf.Sequential | null = null;
-  private readonly WINDOW_SIZE = 30;
-  private readonly PREDICTION_HORIZON = 7;
+  private readonly logger = new Logger(PredictiveAnalyticsService.name);
+  private model: tf.LayersModel | null = null;
+  private readonly modelPath = path.join(__dirname, '../../models/ritual_predictor');
 
-  constructor(
-    @inject(DataProcessor) private dataProcessor: DataProcessor,
-    @inject(Logger) private logger: Logger
-  ) {
+  constructor() {
     this.initializeModel();
   }
 
   /**
-   * Initialize the LSTM model for time series prediction
+   * Initialize or load the predictive model
    */
-  private initializeModel(): void {
+  private async initializeModel(): Promise<void> {
     try {
-      this.model = tf.sequential();
-      this.model.add(
-        tf.layers.lstm({
-          units: 64,
-          inputShape: [this.WINDOW_SIZE, 1],
-          returnSequences: true,
-        })
-      );
-      this.model.add(tf.layers.dropout(0.2));
-      this.model.add(tf.layers.lstm({ units: 32 }));
-      this.model.add(tf.layers.dropout(0.2));
-      this.model.add(tf.layers.dense({ units: this.PREDICTION_HORIZON }));
-
-      this.model.compile({
-        optimizer: 'adam',
-        loss: 'meanSquaredError',
-        metrics: ['accuracy'],
-      });
-
-      this.logger.info('Predictive model initialized successfully');
+      if (fs.existsSync(this.modelPath)) {
+        this.model = await tf.loadLayersModel(`file://${this.modelPath}/model.json`);
+        this.logger.log('Loaded existing predictive model');
+      } else {
+        this.model = this.createModel();
+        this.logger.log('Created new predictive model');
+        await this.saveModel();
+      }
     } catch (error) {
-      this.logger.error('Failed to initialize predictive model', error);
-      throw error;
+      this.logger.error(`Model initialization failed: ${error.message}`);
+      this.model = this.createModel();
     }
   }
 
   /**
-   * Train the model with historical ritual data
+   * Create a new neural network model for ritual prediction
    */
-  public async trainModel(data: TimeSeriesData[]): Promise<void> {
+  private createModel(): tf.LayersModel {
+    const model = tf.sequential();
+    model.add(tf.layers.dense({ units: 64, activation: 'relu', inputShape: [10] }));
+    model.add(tf.layers.dropout({ rate: 0.2 }));
+    model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
+    model.add(tf.layers.dropout({ rate: 0.2 }));
+    model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
+    model.add(tf.layers.dense({ units: 3, activation: 'softmax' }));
+
+    model.compile({
+      optimizer: tf.train.adam(),
+      loss: 'categoricalCrossentropy',
+      metrics: ['accuracy'],
+    });
+
+    return model;
+  }
+
+  /**
+   * Save the current model to disk
+   */
+  private async saveModel(): Promise<void> {
+    if (this.model) {
+      await this.model.save(`file://${this.modelPath}`);
+      this.logger.log('Model saved successfully');
+    }
+  }
+
+  /**
+   * Preprocess ritual data for model input
+   */
+  private preprocessData(data: RitualData[]): number[][] {
+    return data.map(item => [
+      item.participationRate,
+      item.duration,
+      item.frequency,
+      item.sentimentScore,
+      item.communityEngagement,
+      item.resourceConsumption,
+      item.culturalRelevance,
+      item.historicalImpact,
+      item.geographicSpread,
+      item.digitalPresence,
+    ]);
+  }
+
+  /**
+   * Train the model with new ritual data
+   */
+  async trainModel(data: RitualData[], labels: number[][]): Promise<void> {
     if (!this.model) throw new Error('Model not initialized');
 
-    try {
-      const { inputs, outputs } = this.dataProcessor.prepareTimeSeriesData(
-        data,
-        this.WINDOW_SIZE,
-        this.PREDICTION_HORIZON
-      );
+    const xs = tf.tensor2d(this.preprocessData(data));
+    const ys = tf.tensor2d(labels);
 
-      const xs = tf.tensor3d(inputs, [inputs.length, this.WINDOW_SIZE, 1]);
-      const ys = tf.tensor2d(outputs, [outputs.length, this.PREDICTION_HORIZON]);
-
-      await this.model.fit(xs, ys, {
-        epochs: 50,
-        batchSize: 32,
-        validationSplit: 0.2,
-        callbacks: {
-          onEpochEnd: (epoch, logs) => {
-            this.logger.info(`Epoch ${epoch + 1}: Loss = ${logs?.loss}`);
-          },
+    this.logger.log('Starting model training...');
+    await this.model.fit(xs, ys, {
+      epochs: 50,
+      batchSize: 32,
+      validationSplit: 0.2,
+      callbacks: {
+        onEpochEnd: (epoch, logs) => {
+          this.logger.log(`Epoch ${epoch}: loss = ${logs.loss.toFixed(4)}, accuracy = ${logs.acc.toFixed(4)}`);
         },
-      });
+      },
+    });
 
-      tf.dispose([xs, ys]);
-      this.logger.info('Model training completed');
-    } catch (error) {
-      this.logger.error('Error during model training', error);
-      throw error;
-    }
+    await this.saveModel();
+    xs.dispose();
+    ys.dispose();
+    this.logger.log('Model training completed');
   }
 
   /**
-   * Predict future ritual trends based on historical data
+   * Predict ritual trends based on input data
    */
-  public async predictRitualTrends(data: TimeSeriesData[]): Promise<RitualTrend[]> {
+  async predictRitualTrends(data: RitualData): Promise<{ trend: string; probability: number }> {
     if (!this.model) throw new Error('Model not initialized');
 
-    try {
-      const input = this.dataProcessor.preparePredictionInput(data, this.WINDOW_SIZE);
-      const inputTensor = tf.tensor3d(input, [1, this.WINDOW_SIZE, 1]);
-      const prediction = this.model.predict(inputTensor) as tf.Tensor;
-      const predictionValues = await prediction.data();
+    const input = tf.tensor2d(this.preprocessData([data]));
+    const prediction = this.model.predict(input) as tf.Tensor;
+    const probabilities = await prediction.data();
+    input.dispose();
+    prediction.dispose();
 
-      tf.dispose([inputTensor, prediction]);
+    const trendLabels = ['Declining', 'Stable', 'Growing'];
+    const maxProbIndex = probabilities.indexOf(Math.max(...probabilities));
 
-      return this.dataProcessor.formatPredictionOutput(predictionValues, this.PREDICTION_HORIZON);
-    } catch (error) {
-      this.logger.error('Error predicting ritual trends', error);
-      throw error;
-    }
+    return {
+      trend: trendLabels[maxProbIndex],
+      probability: probabilities[maxProbIndex],
+    };
   }
 
   /**
-   * Analyze community behavior patterns using clustering
+   * Analyze community behavior patterns using time series
    */
-  public async analyzeCommunityBehavior(data: CommunityBehavior[]): Promise<PredictionResult> {
-    try {
-      const processedData = this.dataProcessor.processCommunityData(data);
-      const patterns = this.dataProcessor.detectPatterns(processedData);
+  async analyzeCommunityBehavior(data: CommunityBehavior[]): Promise<{ patterns: string[]; insights: string[] }> {
+    // Simple moving average for smoothing time series data
+    const engagementValues = data.map(d => d.engagementLevel);
+    const smoothed = this.calculateMovingAverage(engagementValues, 3);
 
-      return {
-        timestamp: new Date(),
-        patterns,
-        confidence: this.calculateConfidence(patterns),
-        insights: this.generateInsights(patterns),
-      };
-    } catch (error) {
-      this.logger.error('Error analyzing community behavior', error);
-      throw error;
-    }
+    const patterns = this.detectPatterns(smoothed);
+    const insights = this.generateInsights(patterns, data);
+
+    return { patterns, insights };
   }
 
   /**
-   * Predict cultural impact based on ritual trends
+   * Calculate moving average for time series smoothing
    */
-  public async predictCulturalImpact(trends: RitualTrend[]): Promise<PredictionResult> {
-    try {
-      const impactScores = this.dataProcessor.calculateImpactScores(trends);
-      const patterns = this.dataProcessor.detectCulturalPatterns(impactScores);
-
-      return {
-        timestamp: new Date(),
-        patterns,
-        confidence: this.calculateConfidence(patterns),
-        insights: this.generateCulturalInsights(patterns, impactScores),
-      };
-    } catch (error) {
-      this.logger.error('Error predicting cultural impact', error);
-      throw error;
+  private calculateMovingAverage(data: number[], windowSize: number): number[] {
+    const result: number[] = [];
+    for (let i = 0; i < data.length; i++) {
+      const start = Math.max(0, i - windowSize + 1);
+      const end = i + 1;
+      const window = data.slice(start, end);
+      result.push(window.reduce((sum, val) => sum + val, 0) / window.length);
     }
+    return result;
   }
 
   /**
-   * Real-time prediction for incoming ritual data
+   * Detect patterns in smoothed data
    */
-  public async realTimePrediction(dataPoint: TimeSeriesData): Promise<number> {
+  private detectPatterns(data: number[]): string[] {
+    const patterns: string[] = [];
+    if (data.length < 3) return patterns;
+
+    for (let i = 1; i < data.length - 1; i++) {
+      if (data[i] > data[i - 1] && data[i] > data[i + 1]) {
+        patterns.push(`Peak at index ${i}`);
+      } else if (data[i] < data[i - 1] && data[i] < data[i + 1]) {
+        patterns.push(`Trough at index ${i}`);
+      }
+    }
+    return patterns;
+  }
+
+  /**
+   * Generate actionable insights from patterns
+   */
+  private generateInsights(patterns: string[], data: CommunityBehavior[]): string[] {
+    const insights: string[] = [];
+    if (patterns.length === 0) {
+      insights.push('No significant patterns detected in community behavior.');
+      return insights;
+    }
+
+    patterns.forEach(pattern => {
+      if (pattern.includes('Peak')) {
+        insights.push('Community engagement peaked - consider capitalizing with events or rituals.');
+      } else if (pattern.includes('Trough')) {
+        insights.push('Community engagement dropped - investigate causes and consider interventions.');
+      }
+    });
+
+    return insights;
+  }
+
+  /**
+   * Predict cultural impact of rituals
+   */
+  async predictCulturalImpact(data: RitualData): Promise<CulturalImpact> {
     if (!this.model) throw new Error('Model not initialized');
 
-    try {
-      const input = this.dataProcessor.prepareRealTimeInput(dataPoint, this.WINDOW_SIZE);
-      const inputTensor = tf.tensor3d(input, [1, this.WINDOW_SIZE, 1]);
-      const prediction = this.model.predict(inputTensor) as tf.Tensor;
-      const predictionValue = (await prediction.data())[0];
-
-      tf.dispose([inputTensor, prediction]);
-      return predictionValue;
-    } catch (error) {
-      this.logger.error('Error in real-time prediction', error);
-      throw error;
-    }
+    const trendPrediction = await this.predictRitualTrends(data);
+    return {
+      impactScore: trendPrediction.probability * 100,
+      predictedInfluence: trendPrediction.trend,
+      confidence: trendPrediction.probability,
+    };
   }
 
   /**
-   * Calculate confidence score for predictions
+   * Real-time prediction endpoint for streaming data
    */
-  private calculateConfidence(patterns: any[]): number {
-    // Simple confidence calculation based on pattern consistency
-    return patterns.length > 0 ? Math.min(patterns.length * 0.1, 0.95) : 0.5;
-  }
-
-  /**
-   * Generate automated insights from patterns
-   */
-  private generateInsights(patterns: any[]): string[] {
-    return patterns.map((p, i) => `Insight ${i + 1}: Detected pattern with strength ${p.strength || 0}`);
-  }
-
-  /**
-   * Generate cultural-specific insights
-   */
-  private generateCulturalInsights(patterns: any[], scores: number[]): string[] {
-    return patterns.map((p, i) => `Cultural Impact ${i + 1}: Score ${scores[i] || 0}`);
-  }
-
-  /**
-   * Save model to disk
-   */
-  public async saveModel(path: string): Promise<void> {
-    if (!this.model) throw new Error('Model not initialized');
-    await this.model.save(`file://${path}`);
-    this.logger.info(`Model saved to ${path}`);
-  }
-
-  /**
-   * Load model from disk
-   */
-  public async loadModel(path: string): Promise<void> {
-    this.model = (await tf.loadLayersModel(`file://${path}`)) as tf.Sequential;
-    this.logger.info(`Model loaded from ${path}`);
+  async realTimePrediction(dataStream: RitualData[]): Promise<{ predictions: any[] }> {
+    const predictions = await Promise.all(
+      dataStream.map(async data => ({
+        ritualId: data.id,
+        trend: await this.predictRitualTrends(data),
+        impact: await this.predictCulturalImpact(data),
+      }))
+    );
+    return { predictions };
   }
 }
