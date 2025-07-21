@@ -293,7 +293,12 @@ app.post('/ai-task', async (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', service: 'AI API Server' });
+  res.json({
+    status: 'healthy',
+    service: 'AI API Server (Real)',
+    timestamp: new Date().toISOString(),
+    hasApiKey: !!process.env.OPENAI_API_KEY,
+  });
 });
 
 app.listen(PORT, () => {
