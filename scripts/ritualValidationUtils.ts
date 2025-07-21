@@ -1,4 +1,4 @@
-// Utility functions for validating ritual metadata
+// Ritual metadata validation utilities for Symbiotic Syntheconomy project
 
 /**
  * Interface defining the expected structure of ritual metadata
@@ -13,7 +13,7 @@ interface RitualMetadata {
 /**
  * Validates ritual metadata against defined rules
  * @param metadata The metadata object to validate
- * @returns True if metadata is valid, false otherwise
+ * @returns boolean indicating if the metadata is valid
  */
 export function validateRitualMetadata(metadata: any): boolean {
   const errors = getValidationErrors(metadata);
@@ -28,9 +28,9 @@ export function validateRitualMetadata(metadata: any): boolean {
 export function getValidationErrors(metadata: any): string[] {
   const errors: string[] = [];
 
-  // Check if metadata is an object and not null
+  // Check if metadata is an object
   if (!metadata || typeof metadata !== 'object') {
-    errors.push('Metadata must be a non-null object');
+    errors.push('Metadata must be a valid object');
     return errors;
   }
 
@@ -52,13 +52,36 @@ export function getValidationErrors(metadata: any): string[] {
   if (!metadata.participants || !Array.isArray(metadata.participants)) {
     errors.push('Participants must be an array');
   } else if (metadata.participants.length === 0) {
-    errors.push('Participants array cannot be empty');
+    errors.push('Participants array must not be empty');
   }
 
   // Validate timestamp (valid number)
-  if (metadata.timestamp === undefined || typeof metadata.timestamp !== 'number' || isNaN(metadata.timestamp)) {
+  if (typeof metadata.timestamp !== 'number' || isNaN(metadata.timestamp)) {
     errors.push('Timestamp must be a valid number');
   }
 
   return errors;
+}
+
+// Example usage for testing
+if (require.main === module) {
+  const testMetadata = {
+    name: 'Test Ritual',
+    description: 'This is a test ritual description that should be long enough',
+    participants: ['user1', 'user2'],
+    timestamp: Date.now()
+  };
+
+  console.log('Validation result:', validateRitualMetadata(testMetadata));
+  console.log('Errors:', getValidationErrors(testMetadata));
+
+  const invalidMetadata = {
+    name: 'T',
+    description: 'Short',
+    participants: [],
+    timestamp: 'invalid'
+  };
+
+  console.log('Invalid metadata validation result:', validateRitualMetadata(invalidMetadata));
+  console.log('Invalid metadata errors:', getValidationErrors(invalidMetadata));
 }
