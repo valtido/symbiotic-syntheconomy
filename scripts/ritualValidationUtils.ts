@@ -1,4 +1,4 @@
-// Ritual metadata validation utilities for Symbiotic Syntheconomy project
+// Utility functions for validating ritual metadata
 
 /**
  * Interface defining the expected structure of ritual metadata
@@ -13,15 +13,14 @@ interface RitualMetadata {
 /**
  * Validates ritual metadata against defined rules
  * @param metadata The metadata object to validate
- * @returns boolean indicating if the metadata is valid
+ * @returns True if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
-  const errors = getValidationErrors(metadata);
-  return errors.length === 0;
+  return getValidationErrors(metadata).length === 0;
 }
 
 /**
- * Gets validation errors for ritual metadata
+ * Returns an array of validation error messages for the given metadata
  * @param metadata The metadata object to validate
  * @returns Array of error messages, empty if valid
  */
@@ -30,7 +29,7 @@ export function getValidationErrors(metadata: any): string[] {
 
   // Check if metadata is an object
   if (!metadata || typeof metadata !== 'object') {
-    errors.push('Metadata must be a valid object');
+    errors.push('Metadata must be a non-null object');
     return errors;
   }
 
@@ -61,27 +60,4 @@ export function getValidationErrors(metadata: any): string[] {
   }
 
   return errors;
-}
-
-// Example usage for testing
-if (require.main === module) {
-  const testMetadata = {
-    name: 'Test Ritual',
-    description: 'This is a test ritual description that should be long enough',
-    participants: ['user1', 'user2'],
-    timestamp: Date.now()
-  };
-
-  console.log('Validation result:', validateRitualMetadata(testMetadata));
-  console.log('Errors:', getValidationErrors(testMetadata));
-
-  const invalidMetadata = {
-    name: 'T',
-    description: 'Short',
-    participants: [],
-    timestamp: 'invalid'
-  };
-
-  console.log('Invalid metadata validation result:', validateRitualMetadata(invalidMetadata));
-  console.log('Invalid metadata errors:', getValidationErrors(invalidMetadata));
 }
