@@ -1,4 +1,4 @@
-// TypeScript code for Ritual Scheduler System
+// Ritual Scheduler System for Symbiotic Syntheconomy
 
 interface Ritual {
   id: string;
@@ -6,178 +6,184 @@ interface Ritual {
   startTime: Date;
   durationMinutes: number;
   metadata: Record<string, any>;
-  endTime?: Date;
+  status: 'scheduled' | 'ongoing' | 'completed' | 'canceled';
 }
 
 class RitualScheduler {
   private rituals: Ritual[] = [];
-
-  constructor() {
-    console.log('Ritual Scheduler initialized');
-  }
+  private readonly conflictThresholdMinutes: number = 15; // Buffer time between rituals
 
   /**
-   * Schedule a new ritual
-   * @param name Name of the ritual
-   * @param startTime Start time of the ritual
-   * @param durationMinutes Duration of the ritual in minutes
-   * @param metadata Additional metadata for the ritual
-   * @returns The scheduled ritual or error if there's a conflict
+   * Schedules a new ritual with the provided details.
+   * @returns true if scheduled successfully, false if there's a conflict
    */
   scheduleRitual(
     name: string,
     startTime: Date,
     durationMinutes: number,
     metadata: Record<string, any> = {}
-  ): Ritual | Error {
+  ): boolean {
     const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
-    const id = this.generateId();
 
-    // Check for conflicts
-    if (this.hasConflict(startTime, endTime)) {
-      return new Error(`Scheduling conflict for ritual '${name}' at ${startTime}`);
+    // Check for conflicts with existing rituals
+    const hasConflict = this.rituals.some(ritual => {
+      if (ritual.status === 'canceled' || ritual.status === 'completed') return false;
+
+      const ritualStart = ritual.startTime;
+      const ritualEnd = new Date(ritual.startTime.getTime() + ritual.durationMinutes * 60000);
+      const bufferMs = this.conflictThresholdMinutes * 60000;
+
+      return (
+        (startTime.getTime() >= ritualStart.getTime() - bufferMs && 
+         startTime.getTime() <= ritualEnd.getTime() + bufferMs) ||
+        (endTime.getTime() >= ritualStart.getTime() - bufferMs && 
+         endTime.getTime() <= ritualEnd.getTime() + bufferMs) ||
+        (startTime.getTime() <= ritualStart.getTime() && 
+         endTime.getTime() >= ritualEnd.getTime())
+      );
+    });
+
+    if (hasConflict) {
+      console.warn(`Conflict detected for ritual: ${name} at ${startTime.toISOString()}`);
+      return false;
     }
 
-    const ritual: Ritual = {
-      id,
+    const newRitual: Ritual = {
+      id: this.generateId(),
       name,
       startTime,
       durationMinutes,
-      endTime,
       metadata,
+      status: 'scheduled',
     };
 
-    this.rituals.push(ritual);
-    this.sortRituals();
-    console.log(`Scheduled ritual: ${name} at ${startTime}`);
-    return ritual;
+    this.rituals.push(newRitual);
+    console.log(`Ritual scheduled: ${name} at ${startTime.toISOString()}`);
+    return true;
   }
 
   /**
-   * Reschedule an existing ritual
-   * @param id ID of the ritual to reschedule
-   * @param newStartTime New start time for the ritual
-   * @returns Updated ritual or error if not found or conflict exists
+   * Reschedules an existing ritual to a new time.
+   * @returns true if rescheduled successfully, false if there's a conflict or ritual not found
    */
-  rescheduleRitual(id: string, newStartTime: Date): Ritual | Error {
-    const ritualIndex = this.rituals.findIndex((r) => r.id === id);
+  rescheduleRitual(ritualId: string, newStartTime: Date): boolean {
+    const ritualIndex = this.rituals.findIndex(r => r.id === ritualId);
     if (ritualIndex === -1) {
-      return new Error(`Ritual with ID ${id} not found`);
+      console.warn(`Ritual not found: ${ritualId}`);
+      return false;
     }
 
     const ritual = this.rituals[ritualIndex];
-    const newEndTime = new Date(newStartTime.getTime() + ritual.durationMinutes * 60000);
+    if (ritual.status === 'canceled' || ritual.status === 'completed') {
+      console.warn(`Cannot reschedule ritual in status: ${ritual.status}`);
+      return false;
+    }
 
     // Temporarily remove the ritual for conflict check
     const tempRituals = [...this.rituals];
     tempRituals.splice(ritualIndex, 1);
 
-    if (this.hasConflict(newStartTime, newEndTime, tempRituals)) {
-      return new Error(`Rescheduling conflict for ritual '${ritual.name}' at ${newStartTime}`);
+    const endTime = new Date(newStartTime.getTime() + ritual.durationMinutes * 60000);
+    const hasConflict = tempRituals.some(other => {
+      if (other.status === 'canceled' || other.status === 'completed') return false;
+
+      const otherStart = other.startTime;
+      const otherEnd = new Date(other.startTime.getTime() + other.durationMinutes * 60000);
+      const bufferMs = this.conflictThresholdMinutes * 60000;
+
+      return (
+        (newStartTime.getTime() >= otherStart.getTime() - bufferMs && 
+         newStartTime.getTime() <= otherEnd.getTime() + bufferMs) ||
+        (endTime.getTime() >= otherStart.getTime() - bufferMs && 
+         endTime.getTime() <= otherEnd.getTime() + bufferMs) ||
+        (newStartTime.getTime() <= otherStart.getTime() && 
+         endTime.getTime() >= otherEnd.getTime())
+      );
+    });
+
+    if (hasConflict) {
+      console.warn(`Conflict detected for rescheduling ritual: ${ritual.name} at ${newStartTime.toISOString()}`);
+      return false;
     }
 
     ritual.startTime = newStartTime;
-    ritual.endTime = newEndTime;
-    this.sortRituals();
-    console.log(`Rescheduled ritual: ${ritual.name} to ${newStartTime}`);
-    return ritual;
-  }
-
-  /**
-   * Cancel a ritual
-   * @param id ID of the ritual to cancel
-   * @returns True if canceled, Error if not found
-   */
-  cancelRitual(id: string): boolean | Error {
-    const ritualIndex = this.rituals.findIndex((r) => r.id === id);
-    if (ritualIndex === -1) {
-      return new Error(`Ritual with ID ${id} not found`);
-    }
-
-    const ritual = this.rituals[ritualIndex];
-    this.rituals.splice(ritualIndex, 1);
-    console.log(`Canceled ritual: ${ritual.name}`);
+    ritual.status = 'scheduled';
+    console.log(`Ritual rescheduled: ${ritual.name} to ${newStartTime.toISOString()}`);
     return true;
   }
 
   /**
-   * Get all scheduled rituals
-   * @returns Array of scheduled rituals
+   * Cancels a ritual by ID.
+   * @returns true if canceled successfully, false if not found or already completed/canceled
    */
-  getRituals(): Ritual[] {
-    return [...this.rituals];
+  cancelRitual(ritualId: string): boolean {
+    const ritual = this.rituals.find(r => r.id === ritualId);
+    if (!ritual) {
+      console.warn(`Ritual not found: ${ritualId}`);
+      return false;
+    }
+
+    if (ritual.status === 'canceled' || ritual.status === 'completed') {
+      console.warn(`Ritual already in status: ${ritual.status}`);
+      return false;
+    }
+
+    ritual.status = 'canceled';
+    console.log(`Ritual canceled: ${ritual.name}`);
+    return true;
   }
 
   /**
-   * Check for scheduling conflicts
-   * @param startTime Start time to check
-   * @param endTime End time to check
-   * @param rituals Optional array of rituals to check against
-   * @returns True if there is a conflict
+   * Updates ritual status based on current time.
    */
-  private hasConflict(startTime: Date, endTime: Date, rituals: Ritual[] = this.rituals): boolean {
-    return rituals.some((ritual) => {
-      const rStart = ritual.startTime;
-      const rEnd = ritual.endTime as Date;
-      return startTime < rEnd && endTime > rStart;
+  updateStatuses(): void {
+    const now = new Date();
+    this.rituals.forEach(ritual => {
+      const endTime = new Date(ritual.startTime.getTime() + ritual.durationMinutes * 60000);
+      if (ritual.status === 'scheduled' && now >= ritual.startTime) {
+        ritual.status = 'ongoing';
+        console.log(`Ritual started: ${ritual.name}`);
+      }
+      if (ritual.status === 'ongoing' && now >= endTime) {
+        ritual.status = 'completed';
+        console.log(`Ritual completed: ${ritual.name}`);
+      }
     });
   }
 
   /**
-   * Sort rituals by start time
+   * Gets all rituals, optionally filtered by status.
    */
-  private sortRituals(): void {
-    this.rituals.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  getRituals(status?: Ritual['status']): Ritual[] {
+    return status ? this.rituals.filter(r => r.status === status) : [...this.rituals];
   }
 
   /**
-   * Generate a unique ID for a ritual
-   * @returns Unique ID string
+   * Generates a unique ID for a ritual.
    */
   private generateId(): string {
-    return Math.random().toString(36).substr(2, 9);
+    return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
   }
 }
 
 // Example usage
+export const scheduler = new RitualScheduler();
+
+// Schedule some example rituals for testing
 if (require.main === module) {
-  const scheduler = new RitualScheduler();
+  const now = new Date();
+  const inOneHour = new Date(now.getTime() + 60 * 60000);
+  const inTwoHours = new Date(now.getTime() + 120 * 60000);
 
-  // Schedule some rituals
-  const ritual1 = scheduler.scheduleRitual(
-    'Morning Meditation',
-    new Date('2023-10-01T08:00:00'),
-    30,
-    { location: 'Garden' }
-  );
+  console.log('Scheduling test rituals...');
+  scheduler.scheduleRitual('Morning Meditation', now, 30, { location: 'Garden' });
+  scheduler.scheduleRitual('Conflict Test', now, 30); // Should fail due to conflict
+  scheduler.scheduleRitual('Evening Ceremony', inOneHour, 45, { participants: 10 });
+  scheduler.scheduleRitual('Night Ritual', inTwoHours, 60);
 
-  const ritual2 = scheduler.scheduleRitual(
-    'Evening Yoga',
-    new Date('2023-10-01T18:00:00'),
-    60,
-    { instructor: 'Maya' }
-  );
+  // Print scheduled rituals
+  console.log('\nScheduled Rituals:', scheduler.getRituals('scheduled'));
 
-  // Test conflict
-  const conflictRitual = scheduler.scheduleRitual(
-    'Conflict Test',
-    new Date('2023-10-01T08:15:00'),
-    30
-  );
-
-  console.log('All rituals:', scheduler.getRituals());
-
-  // Test rescheduling
-  if (ritual1 instanceof Object && 'id' in ritual1) {
-    scheduler.rescheduleRitual(ritual1.id, new Date('2023-10-01T09:00:00'));
-    console.log('After reschedule:', scheduler.getRituals());
-  }
-
-  // Test cancellation
-  if (ritual2 instanceof Object && 'id' in ritual2) {
-    scheduler.cancelRitual(ritual2.id);
-    console.log('After cancellation:', scheduler.getRituals());
-  }
+  // Update statuses (simulating time passage)
+  scheduler.updateStatuses();
 }
-
-export default RitualScheduler;
