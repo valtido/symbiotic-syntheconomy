@@ -1,37 +1,22 @@
 // Utility functions for validating ritual metadata
 
 /**
- * Interface defining the expected structure of ritual metadata
- */
-interface RitualMetadata {
-  name: string;
-  description: string;
-  participants: string[];
-  timestamp: number;
-}
-
-/**
  * Validates ritual metadata against defined rules
- * @param metadata The metadata object to validate
- * @returns True if metadata is valid, false otherwise
+ * @param metadata - The metadata object to validate
+ * @returns boolean - True if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
-  return getValidationErrors(metadata).length === 0;
+  const errors = getValidationErrors(metadata);
+  return errors.length === 0;
 }
 
 /**
  * Gets validation errors for ritual metadata
- * @param metadata The metadata object to validate
- * @returns Array of error messages, empty if valid
+ * @param metadata - The metadata object to validate
+ * @returns string[] - Array of error messages
  */
 export function getValidationErrors(metadata: any): string[] {
   const errors: string[] = [];
-
-  // Check if metadata is an object
-  if (!metadata || typeof metadata !== 'object') {
-    errors.push('Metadata must be a non-null object');
-    return errors;
-  }
 
   // Validate name (3-50 characters)
   if (!metadata.name || typeof metadata.name !== 'string') {
@@ -60,4 +45,27 @@ export function getValidationErrors(metadata: any): string[] {
   }
 
   return errors;
+}
+
+// Example usage for testing
+if (require.main === module) {
+  const testMetadata = {
+    name: 'Test Ritual',
+    description: 'This is a test ritual description that is long enough to pass validation.',
+    participants: ['user1', 'user2'],
+    timestamp: Date.now()
+  };
+
+  console.log('Validation result:', validateRitualMetadata(testMetadata));
+  console.log('Errors:', getValidationErrors(testMetadata));
+
+  const invalidMetadata = {
+    name: 'ab', // too short
+    description: 'short', // too short
+    participants: [], // empty
+    timestamp: 'invalid' // not a number
+  };
+
+  console.log('Validation result (invalid):', validateRitualMetadata(invalidMetadata));
+  console.log('Errors (invalid):', getValidationErrors(invalidMetadata));
 }
