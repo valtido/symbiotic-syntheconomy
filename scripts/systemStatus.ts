@@ -425,6 +425,7 @@ class SystemStatus {
     console.log('  2 - Task details');
     console.log('  3 - Recent logs');
     console.log('  4 - Quick commands (this view)');
+    console.log('  5 - Service URLs (this view)');
 
     console.log('\n⚡ Actions:');
     console.log('  q - Quit monitor');
@@ -435,9 +436,71 @@ class SystemStatus {
     );
   }
 
+  private displayUrlsView(): void {
+    this.clearScreen();
+    console.log('🌐 Service URLs');
+    console.log(
+      '═══════════════════════════════════════════════════════════════\n',
+    );
+
+    console.log('🏠 Local Development:');
+    console.log('  Frontend App:        http://localhost:3000');
+    console.log('  Backend API:         http://localhost:3006');
+    console.log('  Dashboard:           http://localhost:3007');
+    console.log('  Smart Contracts:     http://localhost:3008');
+    console.log('  AI API Server:       http://localhost:3009');
+    console.log('  AI Webhook Server:   http://localhost:3010');
+
+    console.log('\n🌍 Public URLs (via LocalTunnel):');
+    console.log(
+      '  Frontend App:        https://symbiotic-syntheconomy.loca.lt',
+    );
+    console.log(
+      '  Backend API:         https://symbiotic-syntheconomy.loca.lt:3006',
+    );
+    console.log(
+      '  Dashboard:           https://symbiotic-syntheconomy.loca.lt:3007',
+    );
+    console.log(
+      '  Smart Contracts:     https://symbiotic-syntheconomy.loca.lt:3008',
+    );
+    console.log(
+      '  AI API Server:       https://symbiotic-syntheconomy.loca.lt:3009',
+    );
+    console.log(
+      '  AI Webhook Server:   https://symbiotic-syntheconomy.loca.lt:3010',
+    );
+
+    console.log('\n🔗 External Services:');
+    console.log(
+      '  GitHub Repository:   https://github.com/valtido/symbiotic-syntheconomy',
+    );
+    console.log('  Base Testnet:        https://goerli.basescan.org');
+    console.log('  IPFS Gateway:        https://ipfs.io/ipfs/');
+    console.log('  OpenAI API:          https://platform.openai.com/api-keys');
+    console.log('  Anthropic API:       https://console.anthropic.com/');
+    console.log('  X.AI (Grok):         https://console.x.ai/');
+
+    console.log('\n📊 Health Endpoints:');
+    console.log('  Backend Health:      http://localhost:3006/health');
+    console.log('  AI API Health:       http://localhost:3009/health');
+    console.log(
+      '  Webhook Status:      https://symbiotic-syntheconomy.loca.lt/webhook/github',
+    );
+
+    console.log('\n⚡ Quick Actions:');
+    console.log('  Press 1-4 to navigate to other views');
+    console.log('  Press q to quit');
+    console.log('  Press r to refresh');
+
+    console.log(
+      '\n═══════════════════════════════════════════════════════════════',
+    );
+  }
+
   private displayNavigation(): void {
     console.log(
-      'Navigation: 1-Main | 2-Tasks | 3-Logs | 4-Commands | q-Quit | r-Refresh',
+      'Navigation: 1-Main | 2-Tasks | 3-Logs | 4-Commands | 5-URLs | q-Quit | r-Refresh',
     );
     console.log(
       'Actions: c-Preload | n-Next | a-All | g-Generate | p-Process | s-API | w-Webhook | m-Monitor',
@@ -511,6 +574,9 @@ class SystemStatus {
         break;
       case '4':
         this.currentView = 'commands';
+        break;
+      case '5':
+        this.currentView = 'urls';
         break;
       case 'q':
         this.isRunning = false;
@@ -591,6 +657,9 @@ class SystemStatus {
             break;
           case 'commands':
             this.displayCommandsView();
+            break;
+          case 'urls':
+            this.displayUrlsView();
             break;
         }
       } catch (error) {
