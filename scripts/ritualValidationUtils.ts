@@ -1,9 +1,16 @@
 // Utility functions for validating ritual metadata
 
+interface RitualMetadata {
+  name: string;
+  description: string;
+  participants: string[];
+  timestamp: number;
+}
+
 /**
- * Validates ritual metadata against defined rules
+ * Validates ritual metadata against defined criteria
  * @param metadata - The metadata object to validate
- * @returns boolean - True if metadata is valid, false otherwise
+ * @returns true if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
   const errors = getValidationErrors(metadata);
@@ -11,12 +18,18 @@ export function validateRitualMetadata(metadata: any): boolean {
 }
 
 /**
- * Gets validation errors for ritual metadata
+ * Returns an array of validation error messages for the given metadata
  * @param metadata - The metadata object to validate
- * @returns string[] - Array of error messages
+ * @returns Array of error messages, empty if valid
  */
 export function getValidationErrors(metadata: any): string[] {
   const errors: string[] = [];
+
+  // Check if metadata is an object
+  if (!metadata || typeof metadata !== 'object') {
+    errors.push('Metadata must be a non-null object');
+    return errors;
+  }
 
   // Validate name (3-50 characters)
   if (!metadata.name || typeof metadata.name !== 'string') {
@@ -33,39 +46,16 @@ export function getValidationErrors(metadata: any): string[] {
   }
 
   // Validate participants (non-empty array)
-  if (!Array.isArray(metadata.participants)) {
+  if (!metadata.participants || !Array.isArray(metadata.participants)) {
     errors.push('Participants must be an array');
   } else if (metadata.participants.length === 0) {
     errors.push('Participants array cannot be empty');
   }
 
   // Validate timestamp (valid number)
-  if (typeof metadata.timestamp !== 'number' || isNaN(metadata.timestamp)) {
+  if (metadata.timestamp === undefined || typeof metadata.timestamp !== 'number' || isNaN(metadata.timestamp)) {
     errors.push('Timestamp must be a valid number');
   }
 
   return errors;
-}
-
-// Example usage for testing
-if (require.main === module) {
-  const testMetadata = {
-    name: 'Test Ritual',
-    description: 'This is a test ritual description that is long enough to pass validation.',
-    participants: ['user1', 'user2'],
-    timestamp: Date.now()
-  };
-
-  console.log('Validation result:', validateRitualMetadata(testMetadata));
-  console.log('Errors:', getValidationErrors(testMetadata));
-
-  const invalidMetadata = {
-    name: 'ab', // too short
-    description: 'short', // too short
-    participants: [], // empty
-    timestamp: 'invalid' // not a number
-  };
-
-  console.log('Validation result (invalid):', validateRitualMetadata(invalidMetadata));
-  console.log('Errors (invalid):', getValidationErrors(invalidMetadata));
 }
