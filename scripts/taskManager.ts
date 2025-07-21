@@ -234,6 +234,7 @@ class TaskManager {
         filePath: task.filePath,
         requirements: task.requirements,
         agent: 'ChatGPT',
+        taskId: task.id,
       };
 
       const response = await fetch('http://localhost:3009/ai-task', {

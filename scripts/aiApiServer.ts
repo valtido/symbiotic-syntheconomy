@@ -479,6 +479,7 @@ IMPORTANT:
     message: string;
     response?: string;
     provider?: string;
+    taskId?: string;
   }> {
     this.ensureLogDirectory();
     this.log(`📥 Received AI task: ${task.task}`);
@@ -537,6 +538,7 @@ IMPORTANT:
               ...result,
               response: response,
               provider: provider.name,
+              taskId: task.taskId,
             };
           } catch (error) {
             const errorMessage =
