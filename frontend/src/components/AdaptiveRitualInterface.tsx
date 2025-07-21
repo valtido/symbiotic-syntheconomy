@@ -1,201 +1,195 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { UserContext } from '../context/UserContext';
-import { Ritual } from '../types/Ritual';
-
-interface AdaptiveRitualInterfaceProps {
-  rituals: Ritual[];
-  onSubmit: (ritual: Partial<Ritual>) => void;
-}
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { useTheme } from '@mui/material/styles';
+import { Box, Button, TextField, Typography, Slider, Checkbox, FormControlLabel, Divider } from '@mui/material';
+import { motion } from 'framer-motion';
+import { UserContext } from '../contexts/UserContext';
+import { RitualContext } from '../contexts/RitualContext';
 
 interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
-  fontSize: 'small' | 'medium' | 'large';
-  layout: 'compact' | 'spacious';
-  accessibility: {
-    highContrast: boolean;
-    screenReader: boolean;
-    keyboardNav: boolean;
-  };
+  fontSize: number;
+  highContrast: boolean;
+  simplifiedView: boolean;
+  preferredThemes: string[];
+  interactionSpeed: number;
 }
 
-const AdaptiveRitualInterface: React.FC<AdaptiveRitualInterfaceProps> = ({ rituals, onSubmit }) => {
-  const { user } = useContext(UserContext);
+interface AdaptiveRitualInterfaceProps {
+  ritualId?: string;
+  onSubmit?: (data: any) => void;
+}
+
+const AdaptiveRitualInterface: React.FC<AdaptiveRitualInterfaceProps> = ({ ritualId, onSubmit }) => {
+  const theme = useTheme();
+  const { user, updateUserPreferences } = useContext(UserContext);
+  const { currentRitual, updateRitualView } = useContext(RitualContext);
+
+  // State for user preferences and ritual data
   const [preferences, setPreferences] = useState<UserPreferences>({
-    theme: 'system',
-    fontSize: 'medium',
-    layout: 'spacious',
-    accessibility: {
-      highContrast: false,
-      screenReader: false,
-      keyboardNav: true,
-    },
+    fontSize: user?.preferences?.fontSize || 16,
+    highContrast: user?.preferences?.highContrast || false,
+    simplifiedView: user?.preferences?.simplifiedView || false,
+    preferredThemes: user?.preferences?.preferredThemes || ['default'],
+    interactionSpeed: user?.preferences?.interactionSpeed || 1,
   });
-  const [contextualMode, setContextualMode] = useState<'create' | 'view'>('view');
-  const [formData, setFormData] = useState<Partial<Ritual>>({});
 
-  // Load user preferences from localStorage or context
+  const [ritualData, setRitualData] = useState({
+    title: currentRitual?.title || '',
+    description: currentRitual?.description || '',
+    intensity: currentRitual?.intensity || 50,
+  });
+
+  // Update preferences based on user behavior and context
   useEffect(() => {
-    const savedPreferences = localStorage.getItem(`preferences_${user?.id}`);
-    if (savedPreferences) {
-      setPreferences(JSON.parse(savedPreferences));
+    if (user) {
+      const updatedPreferences = analyzeUserBehavior(user);
+      setPreferences(updatedPreferences);
+      updateUserPreferences(updatedPreferences);
     }
-  }, [user]);
+  }, [user, updateUserPreferences]);
 
-  // Save preferences when they change
-  useEffect(() => {
-    if (user?.id) {
-      localStorage.setItem(`preferences_${user.id}`, JSON.stringify(preferences));
-    }
-  }, [preferences, user]);
-
-  // Adaptive theme handling
-  const getThemeClass = () => {
-    if (preferences.theme === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-mode' : 'light-mode';
-    }
-    return `${preferences.theme}-mode`;
-  };
-
-  // Adaptive font size handling
-  const getFontSizeClass = () => `font-size-${preferences.fontSize}`;
-
-  // Adaptive layout handling
-  const getLayoutClass = () => `layout-${preferences.layout}`;
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-    setFormData({});
-    setContextualMode('view');
-  };
+  // Adaptive UI styling based on preferences
+  const adaptiveStyles = useMemo(() => ({
+    container: {
+      backgroundColor: preferences.highContrast ? '#000' : theme.palette.background.default,
+      color: preferences.highContrast ? '#FFF' : theme.palette.text.primary,
+      fontSize: `${preferences.fontSize}px`,
+      padding: theme.spacing(3),
+      borderRadius: theme.shape.borderRadius,
+      transition: 'all 0.3s ease',
+    },
+    input: {
+      marginBottom: theme.spacing(2),
+      fontSize: `${preferences.fontSize}px`,
+    },
+    button: {
+      marginTop: theme.spacing(2),
+      transition: `all ${preferences.interactionSpeed}s ease`,
+    },
+  }), [preferences, theme]);
 
   // Handle preference changes
-  const updatePreference = <K extends keyof UserPreferences>(
-    key: K,
-    value: UserPreferences[K]
-  ) => {
-    setPreferences(prev => ({ ...prev, [key]: value }));
+  const handlePreferenceChange = (key: keyof UserPreferences, value: any) => {
+    setPreferences(prev => {
+      const updated = { ...prev, [key]: value };
+      updateUserPreferences(updated);
+      return updated;
+    });
   };
 
-  // Accessibility attributes
-  const accessibilityProps = {
-    'aria-label': 'Ritual Interface',
-    tabIndex: preferences.accessibility.keyboardNav ? 0 : undefined,
-    role: 'region',
+  // Handle ritual data changes
+  const handleRitualChange = (key: string, value: any) => {
+    setRitualData(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Submit ritual data
+  const handleSubmit = () => {
+    if (onSubmit) {
+      onSubmit(ritualData);
+    }
+    updateRitualView(ritualData);
+  };
+
+  // Analyze user behavior for adaptive personalization
+  const analyzeUserBehavior = (userData: any): UserPreferences => {
+    // Simplified behavior analysis (can be enhanced with ML models)
+    const timeOfDay = new Date().getHours();
+    const highContrast = timeOfDay > 18 || timeOfDay < 6 ? true : preferences.highContrast;
+    return { ...preferences, highContrast };
   };
 
   return (
     <motion.div
-      className={`adaptive-interface ${getThemeClass()} ${getFontSizeClass()} ${getLayoutClass()} ${preferences.accessibility.highContrast ? 'high-contrast' : ''}`}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      {...accessibilityProps}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: preferences.interactionSpeed }}
+      role="region"
+      aria-label="Adaptive Ritual Interface"
     >
-      {/* Preference Controls */}
-      <div className="preference-controls" role="toolbar" aria-label="Interface preferences">
-        <select
-          value={preferences.theme}
-          onChange={e => updatePreference('theme', e.target.value as 'light' | 'dark' | 'system')}
-          aria-label="Theme selection"
-        >
-          <option value="light">Light Theme</option>
-          <option value="dark">Dark Theme</option>
-          <option value="system">System Default</option>
-        </select>
-        <select
-          value={preferences.fontSize}
-          onChange={e => updatePreference('fontSize', e.target.value as 'small' | 'medium' | 'large')}
-          aria-label="Font size selection"
-        >
-          <option value="small">Small Font</option>
-          <option value="medium">Medium Font</option>
-          <option value="large">Large Font</option>
-        </select>
-        <label>
-          <input
-            type="checkbox"
-            checked={preferences.accessibility.highContrast}
-            onChange={e => updatePreference('accessibility', {
-              ...preferences.accessibility,
-              highContrast: e.target.checked
-            })}
+      <Box sx={adaptiveStyles.container}>
+        <Typography variant="h5" gutterBottom>
+          {ritualId ? 'Edit Ritual' : 'Create New Ritual'}
+        </Typography>
+        <Divider sx={{ my: 2 }} />
+
+        {/* Ritual Form - Adapts based on simplifiedView */}
+        {!preferences.simplifiedView && (
+          <TextField
+            fullWidth
+            label="Ritual Title"
+            value={ritualData.title}
+            onChange={(e) => handleRitualChange('title', e.target.value)}
+            sx={adaptiveStyles.input}
+            inputProps={{ 'aria-label': 'Ritual Title' }}
           />
-          High Contrast
-        </label>
-      </div>
-
-      {/* Contextual Mode Switch */}
-      <div className="mode-switch" role="tablist">
-        <button
-          role="tab"
-          aria-selected={contextualMode === 'view'}
-          onClick={() => setContextualMode('view')}
-        >
-          View Rituals
-        </button>
-        <button
-          role="tab"
-          aria-selected={contextualMode === 'create'}
-          onClick={() => setContextualMode('create')}
-        >
-          Create Ritual
-        </button>
-      </div>
-
-      {/* Content based on mode */}
-      <AnimatePresence mode="wait">
-        {contextualMode === 'create' ? (
-          <motion.form
-            key="create-form"
-            initial={{ x: -50, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 50, opacity: 0 }}
-            onSubmit={handleSubmit}
-            role="form"
-            aria-label="Create new ritual"
-          >
-            <input
-              type="text"
-              value={formData.title || ''}
-              onChange={e => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Ritual Title"
-              required
-              aria-required="true"
-            />
-            <textarea
-              value={formData.description || ''}
-              onChange={e => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Ritual Description"
-              required
-              aria-required="true"
-            />
-            <button type="submit">Submit Ritual</button>
-          </motion.form>
-        ) : (
-          <motion.div
-            key="view-list"
-            initial={{ x: -50, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 50, opacity: 0 }}
-            role="grid"
-            aria-label="Ritual list"
-          >
-            {rituals.length > 0 ? (
-              rituals.map(ritual => (
-                <div key={ritual.id} className="ritual-item" role="gridcell">
-                  <h3>{ritual.title}</h3>
-                  <p>{ritual.description}</p>
-                </div>
-              ))
-            ) : (
-              <p>No rituals available.</p>
-            )}
-          </motion.div>
         )}
-      </AnimatePresence>
+        <TextField
+          fullWidth
+          multiline
+          rows={preferences.simplifiedView ? 2 : 4}
+          label="Description"
+          value={ritualData.description}
+          onChange={(e) => handleRitualChange('description', e.target.value)}
+          sx={adaptiveStyles.input}
+          inputProps={{ 'aria-label': 'Ritual Description' }}
+        />
+
+        {!preferences.simplifiedView && (
+          <Box sx={{ mt: 2 }}>
+            <Typography>Intensity Level</Typography>
+            <Slider
+              value={ritualData.intensity}
+              onChange={(_, value) => handleRitualChange('intensity', value)}
+              min={0}
+              max={100}
+              valueLabelDisplay="auto"
+              aria-label="Ritual Intensity Level"
+            />
+          </Box>
+        )}
+
+        {/* Accessibility Preferences */}
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="subtitle1">Personalize Experience</Typography>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={preferences.highContrast}
+                onChange={(_, checked) => handlePreferenceChange('highContrast', checked)}
+              />
+            }
+            label="High Contrast Mode"
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={preferences.simplifiedView}
+                onChange={(_, checked) => handlePreferenceChange('simplifiedView', checked)}
+              />
+            }
+            label="Simplified View"
+          />
+          <Box sx={{ mt: 1 }}>
+            <Typography>Font Size</Typography>
+            <Slider
+              value={preferences.fontSize}
+              onChange={(_, value) => handlePreferenceChange('fontSize', value)}
+              min={12}
+              max={24}
+              valueLabelDisplay="auto"
+              aria-label="Adjust Font Size"
+            />
+          </Box>
+        </Box>
+
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          sx={adaptiveStyles.button}
+          aria-label="Submit Ritual"
+        >
+          {ritualId ? 'Update Ritual' : 'Create Ritual'}
+        </Button>
+      </Box>
     </motion.div>
   );
 };
