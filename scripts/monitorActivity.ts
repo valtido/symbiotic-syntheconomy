@@ -108,7 +108,7 @@ class ActivityMonitor {
   private async checkWebhookStatus() {
     try {
       const { stdout } = await execAsync(
-        'curl -s https://grc-webhook.loca.lt/webhook/github -X POST -H "Content-Type: application/json" -d \'{"test":"status"}\'',
+        'curl -s https://symbiotic-syntheconomy.loca.lt/webhook/github -X POST -H "Content-Type: application/json" -d \'{"test":"status"}\'',
       );
 
       if (

@@ -29,7 +29,7 @@
 
 ### 📡 AI Coordination
 
-- **Webhook URL**: `https://grc-webhook.loca.lt/webhook/github`
+- **Webhook URL**: `https://symbiotic-syntheconomy.loca.lt/webhook/github`
 - **Status**: ✅ Active via localtunnel
 - **Secret**: Configured for signature verification
 - **Sync Log**: `ai-sync-log.md` updated with deployment events

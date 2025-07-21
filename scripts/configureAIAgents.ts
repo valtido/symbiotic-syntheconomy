@@ -144,7 +144,7 @@ ${agent.instructions}
 ## Repository Information
 - Repository: https://github.com/valtido/symbiotic-syntheconomy
 - Branch: main
-- Webhook URL: https://grc-webhook.loca.lt/webhook/github
+- Webhook URL: https://symbiotic-syntheconomy.loca.lt/webhook/github
 
 ## Webhook Detection
 Your commits will be automatically detected if they contain:

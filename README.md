@@ -66,7 +66,7 @@ This project uses AI agent coordination via GitHub webhooks and shared logs to m
 
 #### 2. **GitHub Webhook Integration**
 
-- **Endpoint**: `https://grc-webhook.loca.lt/webhook/github`
+- **Endpoint**: `https://symbiotic-syntheconomy.loca.lt/webhook/github`
 - **Events**: Repository pushes trigger coordination events
 - **Security**: Signature verification with environment variable `GH_WEBHOOK_SECRET`
 - **Status**: Real-time AI agent synchronization
@@ -213,7 +213,11 @@ MIT License - See LICENSE file for details.
 **Status**: Development
 
 Hooks ready.
+
 # Test webhook
+
 # Webhook test Sun Jul 20 22:20:56 BST 2025
+
 # GitHub webhook test Sun Jul 20 22:25:11 BST 2025
+
 # Webhook system test Sun Jul 20 22:30:10 BST 2025

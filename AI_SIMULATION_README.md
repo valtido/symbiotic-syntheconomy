@@ -131,7 +131,7 @@ git log --oneline -10
 ls -la patches/ | tail -10
 
 # Check webhook status
-curl -X POST https://grc-webhook.loca.lt/webhook/github \
+curl -X POST https://symbiotic-syntheconomy.loca.lt/webhook/github \
   -H "Content-Type: application/json" \
   -d '{"test":"status"}'
 ```

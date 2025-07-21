@@ -153,7 +153,7 @@ npm run monitor:activity
 
 ```bash
 # Test webhook response
-curl -X POST https://grc-webhook.loca.lt/webhook/github \
+curl -X POST https://symbiotic-syntheconomy.loca.lt/webhook/github \
   -H "Content-Type: application/json" \
   -d '{"test":"status"}'
 ```
