@@ -12,152 +12,160 @@ contract AdvancedRitualMarketplace is ERC721, Ownable {
 
     // Ritual Token (ERC20) for staking and rewards
     IERC20 public ritualToken;
-    // Uniswap Router for liquidity pool interactions
+    // Uniswap Router for liquidity pools and AMM
     IUniswapV2Router02 public uniswapRouter;
-    // Liquidity Pool address for RITUAL/ETH pair
-    address public liquidityPool;
+    // Mapping for ritual metadata
+    mapping(uint256 => Ritual) public rituals;
+    // Mapping for staking details
+    mapping(address => StakingInfo) public stakingInfo;
+    // Mapping for liquidity providers
+    mapping(address => uint256) public liquidityProvided;
 
-    // Ritual structure
+    uint256 public nextRitualId = 1;
+    uint256 public constant STAKING_REWARD_RATE = 100; // 100 tokens per day
+    uint256 public constant YIELD_FARMING_MULTIPLIER = 2;
+
     struct Ritual {
-        uint256 id;
         string name;
+        string description;
         uint256 powerLevel;
         uint256 price;
         address creator;
         bool isListed;
-        uint256 stakedAmount;
-        uint256 yieldRate; // Yield rate per block (in wei)
     }
 
-    // Mapping for rituals
-    mapping(uint256 => Ritual) public rituals;
-    uint256 public ritualCount;
+    struct StakingInfo {
+        uint256 amountStaked;
+        uint256 lastRewardTime;
+        uint256 accumulatedRewards;
+    }
 
-    // Staking and yield farming data
-    mapping(address => uint256) public stakedBalances;
-    mapping(address => uint256) public lastRewardBlock;
-    uint256 public constant REWARD_RATE = 1e16; // Reward rate per block
-
-    // Cross-chain support (placeholder for bridge integration)
-    mapping(address => mapping(uint256 => uint256)) public crossChainBalances;
-
-    // Events
-    event RitualCreated(uint256 indexed id, string name, uint256 powerLevel, address creator);
-    event RitualListed(uint256 indexed id, uint256 price);
-    event RitualPurchased(uint256 indexed id, address buyer, uint256 price);
-    event Staked(address indexed user, uint256 amount);
-    event Unstaked(address indexed user, uint256 amount);
-    event YieldClaimed(address indexed user, uint256 amount);
-    event LiquidityAdded(address indexed user, uint256 ethAmount, uint256 tokenAmount);
+    event RitualCreated(uint256 ritualId, string name, address creator);
+    event RitualListed(uint256 ritualId, uint256 price);
+    event RitualPurchased(uint256 ritualId, address buyer, uint256 price);
+    event Staked(address staker, uint256 amount);
+    event Unstaked(address staker, uint256 amount);
+    event LiquidityAdded(address provider, uint256 amount);
+    event YieldFarmed(address farmer, uint256 reward);
 
     constructor(
         address _ritualToken,
-        address _uniswapRouter,
-        address _liquidityPool
-    ) ERC721("RitualNFT", "RITUAL") {
+        address _uniswapRouter
+    ) ERC721("RitualNFT", "RNFT") {
         ritualToken = IERC20(_ritualToken);
         uniswapRouter = IUniswapV2Router02(_uniswapRouter);
-        liquidityPool = _liquidityPool;
     }
 
     // Create a new ritual NFT
-    function createRitual(string memory _name, uint256 _powerLevel, uint256 _yieldRate) external {
-        ritualCount++;
-        rituals[ritualCount] = Ritual({
-            id: ritualCount,
-            name: _name,
-            powerLevel: _powerLevel,
-            price: 0,
-            creator: msg.sender,
-            isListed: false,
-            stakedAmount: 0,
-            yieldRate: _yieldRate
-        });
-        _safeMint(msg.sender, ritualCount);
-        emit RitualCreated(ritualCount, _name, _powerLevel, msg.sender);
+    function createRitual(
+        string memory name,
+        string memory description,
+        uint256 powerLevel
+    ) external {
+        uint256 ritualId = nextRitualId;
+        rituals[ritualId] = Ritual(name, description, powerLevel, 0, msg.sender, false);
+        _safeMint(msg.sender, ritualId);
+        emit RitualCreated(ritualId, name, msg.sender);
+        nextRitualId++;
     }
 
     // List ritual for sale
-    function listRitual(uint256 _ritualId, uint256 _price) external {
-        require(ownerOf(_ritualId) == msg.sender, "Not the owner");
-        rituals[_ritualId].price = _price;
-        rituals[_ritualId].isListed = true;
-        emit RitualListed(_ritualId, _price);
+    function listRitual(uint256 ritualId, uint256 price) external {
+        require(ownerOf(ritualId) == msg.sender, "Not the owner");
+        rituals[ritualId].price = price;
+        rituals[ritualId].isListed = true;
+        emit RitualListed(ritualId, price);
     }
 
-    // Purchase a listed ritual
-    function purchaseRitual(uint256 _ritualId) external payable {
-        Ritual memory ritual = rituals[_ritualId];
+    // Purchase ritual NFT using Ritual Tokens
+    function purchaseRitual(uint256 ritualId) external {
+        Ritual memory ritual = rituals[ritualId];
         require(ritual.isListed, "Ritual not listed");
-        require(msg.value >= ritual.price, "Insufficient payment");
+        require(ritualToken.transferFrom(msg.sender, ritual.creator, ritual.price), "Token transfer failed");
 
-        address seller = ownerOf(_ritualId);
-        payable(seller).transfer(ritual.price);
-        if (msg.value > ritual.price) {
-            payable(msg.sender).transfer(msg.value - ritual.price);
-        }
-
-        _transfer(seller, msg.sender, _ritualId);
-        rituals[_ritualId].isListed = false;
-        emit RitualPurchased(_ritualId, msg.sender, ritual.price);
+        _safeTransfer(ritual.creator, msg.sender, ritualId, "");
+        rituals[ritualId].isListed = false;
+        emit RitualPurchased(ritualId, msg.sender, ritual.price);
     }
 
-    // Stake RITUAL tokens for yield farming
-    function stake(uint256 _amount) external {
-        require(_amount > 0, "Amount must be greater than 0");
-        ritualToken.transferFrom(msg.sender, address(this), _amount);
-        stakedBalances[msg.sender] = stakedBalances[msg.sender].add(_amount);
-        lastRewardBlock[msg.sender] = block.number;
-        emit Staked(msg.sender, _amount);
+    // Stake Ritual Tokens for rewards
+    function stakeTokens(uint256 amount) external {
+        require(ritualToken.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
+        StakingInfo storage info = stakingInfo[msg.sender];
+        info.amountStaked = info.amountStaked.add(amount);
+        info.lastRewardTime = block.timestamp;
+        emit Staked(msg.sender, amount);
     }
 
-    // Unstake RITUAL tokens
-    function unstake(uint256 _amount) external {
-        require(stakedBalances[msg.sender] >= _amount, "Insufficient staked balance");
-        claimYield();
-        stakedBalances[msg.sender] = stakedBalances[msg.sender].sub(_amount);
-        ritualToken.transfer(msg.sender, _amount);
-        emit Unstaked(msg.sender, _amount);
+    // Unstake Ritual Tokens
+    function unstakeTokens(uint256 amount) external {
+        StakingInfo storage info = stakingInfo[msg.sender];
+        require(info.amountStaked >= amount, "Insufficient staked amount");
+        updateRewards(msg.sender);
+        info.amountStaked = info.amountStaked.sub(amount);
+        require(ritualToken.transfer(msg.sender, amount), "Token transfer failed");
+        emit Unstaked(msg.sender, amount);
     }
 
-    // Claim yield rewards
-    function claimYield() public {
-        uint256 blocksElapsed = block.number.sub(lastRewardBlock[msg.sender]);
-        uint256 reward = stakedBalances[msg.sender].mul(REWARD_RATE).mul(blocksElapsed).div(1e18);
-        if (reward > 0) {
-            ritualToken.transfer(msg.sender, reward);
-            lastRewardBlock[msg.sender] = block.number;
-            emit YieldClaimed(msg.sender, reward);
-        }
+    // Update staking rewards
+    function updateRewards(address staker) internal {
+        StakingInfo storage info = stakingInfo[staker];
+        uint256 timeElapsed = block.timestamp.sub(info.lastRewardTime);
+        uint256 reward = info.amountStaked.mul(STAKING_REWARD_RATE).mul(timeElapsed).div(1 days);
+        info.accumulatedRewards = info.accumulatedRewards.add(reward);
+        info.lastRewardTime = block.timestamp;
     }
 
-    // Add liquidity to Uniswap pool (RITUAL/ETH)
-    function addLiquidity(uint256 _tokenAmount, uint256 _ethAmount) external payable {
-        require(msg.value >= _ethAmount, "Insufficient ETH");
-        ritualToken.transferFrom(msg.sender, address(this), _tokenAmount);
-        ritualToken.approve(address(uniswapRouter), _tokenAmount);
+    // Claim staking rewards
+    function claimRewards() external {
+        updateRewards(msg.sender);
+        StakingInfo storage info = stakingInfo[msg.sender];
+        uint256 reward = info.accumulatedRewards;
+        info.accumulatedRewards = 0;
+        require(ritualToken.transfer(msg.sender, reward), "Token transfer failed");
+    }
 
-        uniswapRouter.addLiquidityETH{value: _ethAmount}(
+    // Add liquidity to Uniswap pool
+    function addLiquidity(uint256 tokenAmount, uint256 ethAmount) external payable {
+        require(msg.value == ethAmount, "Incorrect ETH amount");
+        require(ritualToken.transferFrom(msg.sender, address(this), tokenAmount), "Token transfer failed");
+        ritualToken.approve(address(uniswapRouter), tokenAmount);
+
+        uniswapRouter.addLiquidityETH{value: ethAmount}(
             address(ritualToken),
-            _tokenAmount,
+            tokenAmount,
             0,
             0,
             msg.sender,
-            block.timestamp + 300
+            block.timestamp + 1 hours
         );
-        emit LiquidityAdded(msg.sender, _ethAmount, _tokenAmount);
+        liquidityProvided[msg.sender] = liquidityProvided[msg.sender].add(tokenAmount);
+        emit LiquidityAdded(msg.sender, tokenAmount);
     }
 
-    // Cross-chain transfer placeholder (to be integrated with bridge)
-    function crossChainTransfer(address _to, uint256 _amount, uint256 _chainId) external {
-        require(ritualToken.balanceOf(msg.sender) >= _amount, "Insufficient balance");
-        ritualToken.transferFrom(msg.sender, address(this), _amount);
-        crossChainBalances[_to][_chainId] = crossChainBalances[_to][_chainId].add(_amount);
+    // Yield farming mechanism
+    function farmYield() external {
+        StakingInfo storage info = stakingInfo[msg.sender];
+        updateRewards(msg.sender);
+        uint256 baseReward = info.accumulatedRewards;
+        uint256 boostedReward = baseReward.mul(YIELD_FARMING_MULTIPLIER);
+        info.accumulatedRewards = 0;
+        require(ritualToken.transfer(msg.sender, boostedReward), "Token transfer failed");
+        emit YieldFarmed(msg.sender, boostedReward);
     }
 
-    // Get pending yield for a user
-    function getPendingYield(address _user) public view returns (uint256) {
-        uint256 blocksElapsed = block.number.sub(lastRewardBlock[_user]);
-        return stakedBalances[_user].mul(REWARD_RATE).mul(blocksElapsed).div(1e18);
+    // Cross-chain support placeholder (to be implemented with bridge protocols)
+    function bridgeRitual(uint256 ritualId, address bridgeContract) external {
+        require(ownerOf(ritualId) == msg.sender, "Not the owner");
+        // Logic for cross-chain transfer using bridgeContract
+        // This is a placeholder for actual implementation
     }
+
+    // Withdraw contract balance (for admin)
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
+
+    // Receive ETH for liquidity
+    receive() external payable {}
 }
