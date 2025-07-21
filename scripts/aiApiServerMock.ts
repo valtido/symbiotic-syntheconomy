@@ -20,6 +20,9 @@ interface AITask {
   filePath?: string;
   requirements?: string;
   agent?: string;
+  sessionId?: string;
+  isPreload?: boolean;
+  taskId?: string;
 }
 
 interface AIContribution {
@@ -35,6 +38,7 @@ interface AIContribution {
 
 class AIApiServerMock {
   private logFile = path.join('log', 'ai-api-mock.log');
+  private preloadedSessions = new Set<string>();
 
   private log(message: string) {
     const timestamp = new Date().toISOString();
@@ -52,6 +56,29 @@ class AIApiServerMock {
 
   // Mock ChatGPT response based on task
   private generateMockResponse(task: AITask): string {
+    // Handle preload directive
+    if (task.isPreload) {
+      this.log(`Processing preload directive for session: ${task.sessionId}`);
+      this.preloadedSessions.add(task.sessionId || 'default');
+      return `# ChatGPT Directive Acknowledged
+
+I have received and understood the directive for the Symbiotic Syntheconomy project. I am now ready to:
+
+- Follow TypeScript coding standards
+- Use Fastify for backend APIs with type-safe JSON schemas
+- Generate Solidity contracts with OpenZeppelin standards for Base testnet
+- Apply ESEP (max emotional skew 0.7) and CEDA (min 2 cultural references) to ritual content
+- Store ritual metadata on IPFS and log hashes on Base testnet
+- Validate AI output against schemas/prd.md
+- Include Narrative Forensics to detect polarizing narratives
+- Enforce ESLint/Prettier for code consistency
+
+I am ready to receive and process tasks. Session ID: ${task.sessionId}
+
+## Next Steps
+Please send me the next task to work on.`;
+    }
+
     const filePath = task.filePath || 'generated-file.ts';
     const fileName = path.basename(filePath, path.extname(filePath));
 
@@ -100,47 +127,188 @@ export function getValidationErrors(metadata: any): string[] {
   }
   return errors;
 }`;
+    } else if (
+      task.task.toLowerCase().includes('scheduler') ||
+      task.task.toLowerCase().includes('schedule')
+    ) {
+      code = `import { RitualMetadata } from './ritualValidationUtils';
+
+export interface RitualSchedule {
+  id: string;
+  ritual: RitualMetadata;
+  scheduledTime: number;
+  participants: string[];
+  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+}
+
+export class RitualScheduler {
+  private schedules: RitualSchedule[] = [];
+
+  scheduleRitual(ritual: RitualMetadata, scheduledTime: number, participants: string[]): string {
+    const id = \`ritual_\${Date.now()}_\${Math.random().toString(36).substr(2, 9)}\`;
+    const schedule: RitualSchedule = {
+      id,
+      ritual,
+      scheduledTime,
+      participants,
+      status: 'scheduled'
+    };
+    this.schedules.push(schedule);
+    return id;
+  }
+
+  getScheduledRituals(): RitualSchedule[] {
+    return this.schedules.filter(s => s.status === 'scheduled');
+  }
+
+  startRitual(id: string): boolean {
+    const schedule = this.schedules.find(s => s.id === id);
+    if (schedule && schedule.status === 'scheduled') {
+      schedule.status = 'in-progress';
+      return true;
+    }
+    return false;
+  }
+
+  completeRitual(id: string): boolean {
+    const schedule = this.schedules.find(s => s.id === id);
+    if (schedule && schedule.status === 'in-progress') {
+      schedule.status = 'completed';
+      return true;
+    }
+    return false;
+  }
+}`;
+    } else if (
+      task.task.toLowerCase().includes('logging') ||
+      task.task.toLowerCase().includes('log')
+    ) {
+      code = `import fs from 'fs';
+import path from 'path';
+
+export interface RitualLog {
+  id: string;
+  ritualName: string;
+  timestamp: number;
+  participants: string[];
+  outcome: string;
+  metadata: any;
+}
+
+export class RitualLogger {
+  private logFile: string;
+
+  constructor(logFile: string = 'rituals.log') {
+    this.logFile = logFile;
+  }
+
+  logRitual(ritual: RitualLog): void {
+    const logEntry = {
+      ...ritual,
+      loggedAt: new Date().toISOString()
+    };
+
+    const logLine = JSON.stringify(logEntry) + '\\n';
+    fs.appendFileSync(this.logFile, logLine);
+  }
+
+  getRitualLogs(): RitualLog[] {
+    if (!fs.existsSync(this.logFile)) {
+      return [];
+    }
+
+    const content = fs.readFileSync(this.logFile, 'utf-8');
+    return content
+      .split('\\n')
+      .filter(line => line.trim())
+      .map(line => JSON.parse(line));
+  }
+
+  getRitualLogsByDate(startDate: Date, endDate: Date): RitualLog[] {
+    const logs = this.getRitualLogs();
+    return logs.filter(log => {
+      const logDate = new Date(log.timestamp);
+      return logDate >= startDate && logDate <= endDate;
+    });
+  }
+}`;
     } else {
+      // Default code generation
       code = `// Generated code for: ${task.task}
 export function ${fileName}() {
-  console.log("Hello from ${fileName}!");
-  return "Generated successfully";
+  console.log('${task.task} implementation');
+  return true;
 }
 
 export default ${fileName};`;
     }
 
-    return JSON.stringify(
-      {
-        agent: task.agent || 'ChatGPT',
-        task: task.task,
-        filePath: filePath,
-        code: code,
-        commands: [
-          `git add ${filePath}`,
-          `git commit -m "🤖 Add ${task.task.toLowerCase()} [AI]"`,
-          `git push origin main`,
-        ],
-        testCommand: `node -e "console.log('Test completed for ${task.task}')"`,
-      },
-      null,
-      2,
-    );
+    return `# Task: ${task.task}
+
+I have implemented the requested functionality for: **${task.task}**
+
+## Generated Code
+
+\`\`\`typescript
+${code}
+\`\`\`
+
+## File Path
+\`${filePath}\`
+
+## Test Command
+\`\`\`bash
+node -e "console.log('Test completed for ${task.task}')"
+\`\`\`
+
+## Git Commands
+\`\`\`bash
+git add ${filePath}
+git commit -m "🤖 Add ${task.task.toLowerCase()} [AI]"
+git push origin main
+\`\`\`
+
+The implementation follows the project's TypeScript standards and includes proper error handling and documentation.`;
   }
 
   // Parse mock response into contribution
   private parseMockResponse(response: string): AIContribution {
     try {
+      // Try to parse as JSON first (for backward compatibility)
       const parsed = JSON.parse(response);
       return parsed as AIContribution;
     } catch (error) {
-      this.log(`❌ Failed to parse mock response: ${error}`);
+      // Parse markdown format
+      this.log(`📝 Parsing markdown response format`);
+
+      // Extract code block
+      const codeMatch = response.match(/```typescript\n([\s\S]*?)\n```/);
+      const code = codeMatch ? codeMatch[1] : '';
+
+      // Extract file path
+      const filePathMatch = response.match(/`([^`]+)`/);
+      const filePath = filePathMatch ? filePathMatch[1] : 'generated-file.ts';
+
+      // Extract git commands
+      const gitCommands = [
+        `git add ${filePath}`,
+        `git commit -m "🤖 Add ${filePath
+          .split('/')
+          .pop()
+          ?.replace('.ts', '')} [AI]"`,
+        `git push origin main`,
+      ];
+
+      // Extract test command
+      const testCommand = `node -e "console.log('Test completed for ${filePath}')"`;
+
       return {
         agent: 'ChatGPT',
         task: 'Generated from Mock API',
-        code: response,
-        filePath: 'mock-response.txt',
-        commands: ['echo "Mock response saved"'],
+        code: code,
+        filePath: filePath,
+        commands: gitCommands,
+        testCommand: testCommand,
       };
     }
   }
