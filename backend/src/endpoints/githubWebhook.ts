@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+// AI contribution handler will be imported differently
 
 const execAsync = promisify(exec);
 
@@ -241,6 +242,76 @@ export default async function githubWebhookRoutes(fastify: FastifyInstance) {
       }
     },
   );
+
+  // AI Contribution Webhook Endpoint
+  fastify.post(
+    '/webhook/ai-contribution',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const body = request.body as any;
+
+        // Validate required fields
+        if (!body.agent || !body.task) {
+          return reply.status(400).send({
+            error: 'Missing required fields: agent and task are required',
+          });
+        }
+
+        fastify.log.info(`AI contribution webhook received from ${body.agent}`);
+
+        // Process the AI contribution
+        const result = await processAIContribution(body);
+
+        return reply.send(result);
+      } catch (error) {
+        fastify.log.error('AI contribution webhook error:', error);
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    },
+  );
+}
+
+async function processAIContribution(
+  contribution: any,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    // Create file if code provided
+    if (contribution.code && contribution.filePath) {
+      const dir = path.dirname(contribution.filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(contribution.filePath, contribution.code, 'utf-8');
+      console.log(`📄 Created file: ${contribution.filePath}`);
+    }
+
+    // Execute commands if provided
+    if (contribution.commands && Array.isArray(contribution.commands)) {
+      for (const command of contribution.commands) {
+        console.log(`🚀 Executing: ${command}`);
+        await execAsync(command);
+        console.log(`✅ Successfully executed: ${command}`);
+      }
+    }
+
+    // Execute test if provided
+    if (contribution.testCommand) {
+      console.log(`🧪 Executing test: ${contribution.testCommand}`);
+      await execAsync(contribution.testCommand);
+      console.log(`✅ Test executed successfully`);
+    }
+
+    return {
+      success: true,
+      message: `AI contribution from ${contribution.agent} processed successfully`,
+    };
+  } catch (error) {
+    console.error(`❌ AI contribution processing failed: ${error}`);
+    return {
+      success: false,
+      message: `Failed to process AI contribution: ${error}`,
+    };
+  }
 }
 
 async function triggerAIPatchGeneration(
