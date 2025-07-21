@@ -17,7 +17,7 @@ import {
 import {
   Upload as UploadIcon,
   CheckCircle as CheckCircleIcon,
-  AlertCircle as AlertCircleIcon,
+  Error as AlertCircleIcon,
 } from '@mui/icons-material';
 
 interface RitualFormData {
