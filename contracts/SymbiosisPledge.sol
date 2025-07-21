@@ -1,23 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/**
- * @title SymbiosisPledge
- * @dev A smart contract for managing bioregional pledges on Base testnet
- */
 contract SymbiosisPledge {
-    // Enum for pledge types (10 types as requested)
+    // Enum for different pledge types (10 types as requested)
     enum PledgeType {
-        WaterConservation,
         Reforestation,
-        WildlifeProtection,
+        WaterConservation,
         SoilRestoration,
+        BiodiversityProtection,
         CarbonSequestration,
         RenewableEnergy,
         WasteReduction,
+        SustainableAgriculture,
         CommunityEducation,
-        BiodiversityEnhancement,
-        SustainableAgriculture
+        WildlifeHabitat
     }
 
     // Struct to store pledge details
@@ -32,33 +28,48 @@ contract SymbiosisPledge {
         bool isVerified;
     }
 
-    // Mapping to store pledges
+    // Mapping to store pledges with unique IDs
     mapping(uint256 => Pledge) public pledges;
-    uint256 public pledgeCount;
+    uint256 public pledgeCounter;
 
-    // Events
+    // Events for tracking actions
     event PledgeCreated(uint256 pledgeId, uint256 bioregionId, PledgeType pledgeType, string description, uint256 amount, address creator);
-    event PledgeFulfilled(uint256 pledgeId, string proofHash);
-    event PledgeVerified(uint256 pledgeId, bool isVerified);
+    event PledgeFulfilled(uint256 pledgeId, string proofHash, address fulfiller);
+    event PledgeVerified(uint256 pledgeId, bool isVerified, address verifier);
+
+    // Modifier to restrict verification to contract owner (for simplicity, can be extended to a role-based system)
+    address public owner;
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can verify pledges");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+        pledgeCounter = 0;
+    }
 
     /**
      * @dev Create a new pledge for a bioregion
      * @param bioregionId Unique identifier for the bioregion
-     * @param pledgeType Type of pledge (from enum)
+     * @param pledgeType Type of pledge from the PledgeType enum
      * @param description Description of the pledge
-     * @param amount Amount associated with the pledge (in wei)
+     * @param amount Amount associated with the pledge (in wei or token units)
      */
     function createPledge(
         uint256 bioregionId,
         uint8 pledgeType,
         string memory description,
         uint256 amount
-    ) external payable returns (uint256) {
+    ) public payable returns (uint256) {
         require(pledgeType < uint8(type(PledgeType).max) + 1, "Invalid pledge type");
-        require(msg.value == amount, "Amount mismatch with sent value");
+        require(amount > 0, "Amount must be greater than 0");
+        if (msg.value > 0) {
+            require(msg.value == amount, "Sent value must match pledge amount");
+        }
 
-        pledgeCount++;
-        pledges[pledgeCount] = Pledge({
+        uint256 pledgeId = pledgeCounter;
+        pledges[pledgeId] = Pledge({
             bioregionId: bioregionId,
             pledgeType: PledgeType(pledgeType),
             description: description,
@@ -69,47 +80,65 @@ contract SymbiosisPledge {
             isVerified: false
         });
 
-        emit PledgeCreated(pledgeCount, bioregionId, PledgeType(pledgeType), description, amount, msg.sender);
-        return pledgeCount;
+        pledgeCounter++;
+        emit PledgeCreated(pledgeId, bioregionId, PledgeType(pledgeType), description, amount, msg.sender);
+        return pledgeId;
     }
 
     /**
-     * @dev Fulfill a pledge by providing proof of completion
-     * @param pledgeId Unique identifier of the pledge
-     * @param proofHash Hash of the proof of fulfillment (e.g., IPFS hash)
+     * @dev Fulfill a pledge by submitting proof of completion
+     * @param pledgeId ID of the pledge to fulfill
+     * @param proofHash IPFS hash or other proof identifier for fulfillment evidence
      */
-    function fulfillPledge(uint256 pledgeId, string memory proofHash) external {
-        require(pledgeId <= pledgeCount && pledgeId > 0, "Invalid pledge ID");
-        require(pledges[pledgeId].creator == msg.sender, "Only creator can fulfill pledge");
-        require(!pledges[pledgeId].isFulfilled, "Pledge already fulfilled");
+    function fulfillPledge(uint256 pledgeId, string memory proofHash) public {
+        Pledge storage pledge = pledges[pledgeId];
+        require(pledge.creator != address(0), "Pledge does not exist");
+        require(!pledge.isFulfilled, "Pledge already fulfilled");
+        require(bytes(proofHash).length > 0, "Proof hash cannot be empty");
 
-        pledges[pledgeId].isFulfilled = true;
-        pledges[pledgeId].proofHash = proofHash;
-
-        emit PledgeFulfilled(pledgeId, proofHash);
+        pledge.isFulfilled = true;
+        pledge.proofHash = proofHash;
+        emit PledgeFulfilled(pledgeId, proofHash, msg.sender);
     }
 
     /**
-     * @dev Verify a fulfilled pledge (restricted to contract owner or future governance)
-     * @param pledgeId Unique identifier of the pledge
-     * @param isVerified Verification status to set
+     * @dev Verify a fulfilled pledge (restricted to owner)
+     * @param pledgeId ID of the pledge to verify
+     * @param isVerified Boolean indicating if the pledge is verified
      */
-    function verifyPledge(uint256 pledgeId, bool isVerified) external {
-        require(pledgeId <= pledgeCount && pledgeId > 0, "Invalid pledge ID");
-        require(pledges[pledgeId].isFulfilled, "Pledge not fulfilled yet");
-        // For simplicity, anyone can verify for now; in production, add access control
-        pledges[pledgeId].isVerified = isVerified;
+    function verifyPledge(uint256 pledgeId, bool isVerified) public onlyOwner {
+        Pledge storage pledge = pledges[pledgeId];
+        require(pledge.creator != address(0), "Pledge does not exist");
+        require(pledge.isFulfilled, "Pledge not fulfilled yet");
 
-        emit PledgeVerified(pledgeId, isVerified);
+        pledge.isVerified = isVerified;
+        emit PledgeVerified(pledgeId, isVerified, msg.sender);
     }
 
     /**
-     * @dev Get pledge details
-     * @param pledgeId Unique identifier of the pledge
-     * @return Pledge details
+     * @dev Get pledge details by ID
+     * @param pledgeId ID of the pledge to retrieve
      */
-    function getPledge(uint256 pledgeId) external view returns (Pledge memory) {
-        require(pledgeId <= pledgeCount && pledgeId > 0, "Invalid pledge ID");
-        return pledges[pledgeId];
+    function getPledge(uint256 pledgeId) public view returns (
+        uint256 bioregionId,
+        PledgeType pledgeType,
+        string memory description,
+        uint256 amount,
+        address creator,
+        bool isFulfilled,
+        string memory proofHash,
+        bool isVerified
+    ) {
+        Pledge memory pledge = pledges[pledgeId];
+        return (
+            pledge.bioregionId,
+            pledge.pledgeType,
+            pledge.description,
+            pledge.amount,
+            pledge.creator,
+            pledge.isFulfilled,
+            pledge.proofHash,
+            pledge.isVerified
+        );
     }
 }
