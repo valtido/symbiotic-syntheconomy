@@ -404,11 +404,17 @@ IMPORTANT:
   // Process contribution through webhook
   private async processContribution(
     contribution: AIContribution,
+    taskId?: string,
   ): Promise<{ success: boolean; message: string }> {
     this.log(`🚀 Processing AI contribution from ${contribution.agent}`);
     this.log(`📋 Task: ${contribution.task}`);
 
     try {
+      // Update task status to in-progress
+      if (taskId) {
+        await this.updateTaskStatus(taskId, 'in-progress');
+      }
+
       // Create file if code provided
       if (contribution.code && contribution.filePath) {
         await this.createFile(contribution.filePath, contribution.code);
@@ -430,12 +436,22 @@ IMPORTANT:
         }
       }
 
+      // Update task status to completed
+      if (taskId) {
+        await this.updateTaskStatus(taskId, 'completed');
+      }
+
       this.log(`🎉 AI contribution from ${contribution.agent} completed!`);
       return {
         success: true,
         message: `AI contribution from ${contribution.agent} processed successfully`,
       };
     } catch (error) {
+      // Update task status to failed
+      if (taskId) {
+        await this.updateTaskStatus(taskId, 'failed');
+      }
+
       this.log(`❌ AI contribution processing failed: ${error}`);
       return {
         success: false,
@@ -463,13 +479,71 @@ IMPORTANT:
     try {
       for (const command of commands) {
         this.log(`🚀 Executing: ${command}`);
-        execSync(command, { stdio: 'inherit' });
+
+        // Check if command needs to be run from a specific directory
+        let workingDir = process.cwd();
+        let actualCommand = command;
+
+        // Handle Hardhat commands
+        if (command.includes('hardhat') || command.includes('npx hardhat')) {
+          workingDir = path.join(process.cwd(), 'contracts');
+          this.log(`📁 Running Hardhat command from: ${workingDir}`);
+
+          // Fix the test path for Hardhat commands
+          if (command.includes('contracts/test/')) {
+            actualCommand = command.replace('contracts/test/', 'test/');
+            this.log(`🔧 Adjusted command: ${actualCommand}`);
+          }
+        }
+
+        // Handle npm commands that need to be run from specific directories
+        if (
+          command.includes('npm run') &&
+          (command.includes('frontend') || command.includes('backend'))
+        ) {
+          if (command.includes('frontend')) {
+            workingDir = path.join(process.cwd(), 'frontend');
+          } else if (command.includes('backend')) {
+            workingDir = path.join(process.cwd(), 'backend');
+          }
+          this.log(`📁 Running npm command from: ${workingDir}`);
+        }
+
+        execSync(actualCommand, { stdio: 'inherit', cwd: workingDir });
         this.log(`✅ Successfully executed: ${command}`);
       }
       return true;
     } catch (error) {
       this.log(`❌ Command execution failed: ${error}`);
       return false;
+    }
+  }
+
+  private async updateTaskStatus(
+    taskId: string,
+    status: 'completed' | 'failed' | 'in-progress',
+  ): Promise<void> {
+    try {
+      const taskListPath = path.join(process.cwd(), 'tasks', 'task-list.json');
+      if (!fs.existsSync(taskListPath)) {
+        this.log(`⚠️ Task list file not found: ${taskListPath}`);
+        return;
+      }
+
+      const taskList = JSON.parse(fs.readFileSync(taskListPath, 'utf-8'));
+      const task = taskList.tasks.find((t: any) => t.id === taskId);
+
+      if (task) {
+        task.status = status;
+        task.completedAt =
+          status === 'completed' ? new Date().toISOString() : undefined;
+        fs.writeFileSync(taskListPath, JSON.stringify(taskList, null, 2));
+        this.log(`📝 Updated task ${taskId} status to: ${status}`);
+      } else {
+        this.log(`⚠️ Task ${taskId} not found in task list`);
+      }
+    } catch (error) {
+      this.log(`❌ Failed to update task status: ${error}`);
     }
   }
 
@@ -529,7 +603,10 @@ IMPORTANT:
             const contribution = this.parseAIResponse(response, provider.name);
 
             // Process the contribution
-            const result = await this.processContribution(contribution);
+            const result = await this.processContribution(
+              contribution,
+              task.taskId,
+            );
 
             // Update current provider index for next request
             this.currentProviderIndex = providerIndex;

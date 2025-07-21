@@ -24,7 +24,7 @@ class ChatGPTPreloader {
   constructor() {
     this.config = {
       directiveFile: 'CHATGPT_API_DIRECTIVE.md',
-      apiUrl: 'http://localhost:3009/ai-task',
+      apiUrl: 'http://localhost:3010/ai-task',
       webhookUrl: 'http://localhost:3008/ai-contribution',
       taskListFile: 'tasks/task-list.json',
       maxRetries: 3,
