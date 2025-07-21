@@ -68,11 +68,27 @@ class AIProviderTester {
   // Check OpenAI quota
   private async checkOpenAIQuota(apiKey: string): Promise<boolean> {
     try {
-      const response = await fetch('https://api.openai.com/v1/models', {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
+      // Test with a minimal request to check actual quota
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [{ role: 'user', content: 'test' }],
+            max_tokens: 1,
+          }),
         },
-      });
+      );
+
+      // If we get a quota error, return false
+      if (response.status === 429 || response.status === 402) {
+        return false;
+      }
       return response.ok;
     } catch (error) {
       this.log(`❌ OpenAI quota check failed: ${error}`);

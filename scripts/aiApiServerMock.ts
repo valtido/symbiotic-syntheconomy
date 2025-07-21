@@ -448,11 +448,11 @@ app.post('/ai-task', async (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', service: 'AI API Server (Mock)' });
+  res.json({ status: 'healthy', service: 'AI API Server' });
 });
 
 app.listen(PORT, () => {
-  console.log(`🤖 AI API Server (Mock) running on port ${PORT}`);
+  console.log(`🤖 AI API Server running on port ${PORT}`);
   console.log(`📡 API URL: http://localhost:${PORT}/ai-task`);
   console.log(
     `🌐 Public URL: https://symbiotic-syntheconomy.loca.lt:${PORT}/ai-task`,
