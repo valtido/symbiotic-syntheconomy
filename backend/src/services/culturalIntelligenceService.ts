@@ -1,149 +1,200 @@
 // Cultural Intelligence Service for Ritual Validation
-// This service provides cultural context understanding and validation for rituals
 
 import { Injectable, Logger } from '@nestjs/common';
-import { RitualContext, CulturalProfile, ValidationResult } from '../types';
-import { CulturalDatabase } from '../data/culturalDatabase';
+import { RitualContext, CulturalProfile, ValidationResult } from '../types/ritual.types';
+import { CulturalDatabase } from '../database/cultural.database';
 
 @Injectable()
 export class CulturalIntelligenceService {
   private readonly logger = new Logger(CulturalIntelligenceService.name);
-  private culturalDb: CulturalDatabase;
+  private readonly culturalThreshold = 0.75; // Minimum cultural alignment score
 
-  constructor() {
-    this.culturalDb = new CulturalDatabase();
-    this.logger.log('Cultural Intelligence Service initialized');
-  }
+  constructor(private readonly culturalDatabase: CulturalDatabase) {}
 
   /**
    * Validates a ritual based on cultural context and regional norms
-   * @param ritualContext The context of the ritual being performed
-   * @returns ValidationResult indicating if the ritual is culturally appropriate
+   * @param context The ritual context including region and cultural elements
+   * @returns ValidationResult with status and feedback
    */
-  async validateRitual(ritualContext: RitualContext): Promise<ValidationResult> {
+  async validateRitual(context: RitualContext): Promise<ValidationResult> {
     try {
-      this.logger.debug(`Validating ritual: ${ritualContext.ritualId} for region: ${ritualContext.region}`);
-      
-      // Get cultural profile for the region
-      const culturalProfile = await this.getCulturalProfile(ritualContext.region);
-      if (!culturalProfile) {
+      this.logger.log(`Validating ritual for region: ${context.region}`);
+      const culturalProfile = await this.getCulturalProfile(context.region);
+      const alignmentScore = this.calculateCulturalAlignment(context, culturalProfile);
+
+      if (alignmentScore >= this.culturalThreshold) {
+        return {
+          isValid: true,
+          score: alignmentScore,
+          feedback: 'Ritual aligns well with cultural norms.',
+          culturalInsights: this.generateCulturalInsights(context, culturalProfile),
+        };
+      } else {
         return {
           isValid: false,
-          reason: `No cultural profile found for region: ${ritualContext.region}`,
-          sensitivityScore: 0,
-          adaptationSuggestions: []
+          score: alignmentScore,
+          feedback: 'Ritual does not meet cultural alignment threshold.',
+          culturalInsights: this.generateCulturalInsights(context, culturalProfile),
         };
       }
-
-      // Perform validation based on cultural norms and ritual context
-      const validation = this.performCulturalValidation(ritualContext, culturalProfile);
-      
-      // Log validation result
-      this.logger.log(`Ritual validation completed for ${ritualContext.ritualId}: ${validation.isValid ? 'Valid' : 'Invalid'}`);
-      return validation;
     } catch (error) {
-      this.logger.error(`Validation error for ritual ${ritualContext.ritualId}: ${error.message}`);
+      this.logger.error(`Validation failed: ${error.message}`);
       return {
         isValid: false,
-        reason: `Validation error: ${error.message}`,
-        sensitivityScore: 0,
-        adaptationSuggestions: []
+        score: 0,
+        feedback: 'Error during cultural validation.',
+        culturalInsights: [],
       };
     }
   }
 
   /**
    * Retrieves cultural profile for a specific region
-   * @param region The region identifier
-   * @returns CulturalProfile for the region
+   * @param region The target region for cultural data
+   * @returns CulturalProfile with norms and sensitivities
    */
-  async getCulturalProfile(region: string): Promise<CulturalProfile | null> {
-    return this.culturalDb.getProfile(region);
+  async getCulturalProfile(region: string): Promise<CulturalProfile> {
+    this.logger.debug(`Fetching cultural profile for ${region}`);
+    return this.culturalDatabase.getProfile(region);
   }
 
   /**
-   * Performs detailed cultural validation using intelligent algorithms
-   * @param ritualContext The context of the ritual
-   * @param profile The cultural profile for the region
-   * @returns ValidationResult with detailed analysis
+   * Calculates alignment score between ritual context and cultural profile
+   * @param context Ritual context with elements to validate
+   * @param profile Cultural profile with norms and guidelines
+   * @returns number representing alignment score (0-1)
    */
-  private performCulturalValidation(
-    ritualContext: RitualContext,
-    profile: CulturalProfile
-  ): ValidationResult {
-    let isValid = true;
-    const reasons: string[] = [];
-    let sensitivityScore = 100;
-    const adaptationSuggestions: string[] = [];
+  private calculateCulturalAlignment(context: RitualContext, profile: CulturalProfile): number {
+    let totalScore = 0;
+    let totalElements = 0;
 
-    // Check temporal context (time-based cultural norms)
-    if (profile.temporalRestrictions.includes(ritualContext.timeOfDay)) {
-      isValid = false;
-      reasons.push(`Ritual timing violates cultural norm for ${ritualContext.timeOfDay}`);
-      sensitivityScore -= 30;
-      adaptationSuggestions.push(`Consider performing ritual at ${profile.preferredTimes[0]}`);
+    // Evaluate symbolic elements
+    if (context.symbols) {
+      context.symbols.forEach((symbol) => {
+        const symbolMatch = profile.symbolicNorms[symbol.name];
+        if (symbolMatch) {
+          totalScore += symbolMatch.acceptanceLevel;
+          totalElements++;
+        }
+      });
     }
 
-    // Check symbolic elements
-    const invalidSymbols = ritualContext.symbols.filter(
-      symbol => !profile.acceptedSymbols.includes(symbol)
-    );
-    if (invalidSymbols.length > 0) {
-      isValid = false;
-      reasons.push(`Invalid symbols used: ${invalidSymbols.join(', ')}`);
-      sensitivityScore -= 20 * invalidSymbols.length;
-      adaptationSuggestions.push(`Replace symbols with culturally appropriate ones: ${profile.acceptedSymbols.join(', ')}`);
+    // Evaluate temporal elements (timing of ritual)
+    if (context.timing) {
+      const timingMatch = profile.temporalNorms[context.timing.period];
+      if (timingMatch) {
+        totalScore += timingMatch.acceptanceLevel;
+        totalElements++;
+      }
     }
 
-    // Check participant roles for cultural appropriateness
-    ritualContext.participants.forEach(participant => {
-      if (!profile.allowedRoles.includes(participant.role)) {
-        isValid = false;
-        reasons.push(`Invalid role for participant: ${participant.role}`);
-        sensitivityScore -= 10;
-        adaptationSuggestions.push(`Assign culturally appropriate role from: ${profile.allowedRoles.join(', ')}`);
+    // Evaluate participant roles for inclusivity
+    if (context.participants) {
+      const inclusivityScore = this.validateInclusivity(context.participants, profile);
+      totalScore += inclusivityScore;
+      totalElements++;
+    }
+
+    return totalElements > 0 ? totalScore / totalElements : 0;
+  }
+
+  /**
+   * Validates inclusivity of participants based on cultural norms
+   * @param participants List of participant roles and demographics
+   * @param profile Cultural profile with inclusivity guidelines
+   * @returns number representing inclusivity score (0-1)
+   */
+  private validateInclusivity(participants: any[], profile: CulturalProfile): number {
+    let inclusivityScore = 0;
+    const diversityFactors = profile.inclusivityGuidelines.diversityFactors;
+
+    if (participants.length === 0) return 0;
+
+    // Check for representation across diversity factors (gender, age, etc.)
+    const representedFactors = new Set();
+    participants.forEach((participant) => {
+      if (participant.demographics) {
+        Object.keys(participant.demographics).forEach((factor) => {
+          if (diversityFactors.includes(factor)) {
+            representedFactors.add(factor);
+          }
+        });
       }
     });
 
-    // Adjust sensitivity score to ensure it stays within bounds
-    sensitivityScore = Math.max(0, sensitivityScore);
-
-    return {
-      isValid,
-      reason: isValid ? 'Ritual meets cultural norms' : reasons.join('; '),
-      sensitivityScore,
-      adaptationSuggestions
-    };
+    inclusivityScore = representedFactors.size / diversityFactors.length;
+    return inclusivityScore;
   }
 
   /**
-   * Updates cultural database with new information
-   * @param region Region to update
-   * @param profile Updated cultural profile
+   * Generates actionable cultural insights for ritual improvement
+   * @param context Ritual context being validated
+   * @param profile Cultural profile for reference
+   * @returns Array of insight strings
    */
-  async updateCulturalProfile(region: string, profile: CulturalProfile): Promise<void> {
-    await this.culturalDb.updateProfile(region, profile);
-    this.logger.log(`Updated cultural profile for region: ${region}`);
-  }
+  private generateCulturalInsights(context: RitualContext, profile: CulturalProfile): string[] {
+    const insights: string[] = [];
 
-  /**
-   * Provides cultural adaptation suggestions for failed validations
-   * @param ritualContext The ritual context
-   * @param validationResult The failed validation result
-   * @returns Array of detailed adaptation suggestions
-   */
-  async getDetailedAdaptationSuggestions(
-    ritualContext: RitualContext,
-    validationResult: ValidationResult
-  ): Promise<string[]> {
-    const suggestions = [...validationResult.adaptationSuggestions];
-    const profile = await this.getCulturalProfile(ritualContext.region);
-    
-    if (profile) {
-      suggestions.push(`Consider local customs: ${profile.localCustoms.join(', ')}`);
-      suggestions.push(`Incorporate traditional elements: ${profile.traditionalElements.join(', ')}`);
+    // Check symbolic alignment
+    if (context.symbols) {
+      context.symbols.forEach((symbol) => {
+        const norm = profile.symbolicNorms[symbol.name];
+        if (!norm || norm.acceptanceLevel < 0.5) {
+          insights.push(`Symbol '${symbol.name}' may not be culturally appropriate. Consider alternatives.`);
+        }
+      });
     }
-    
-    return suggestions;
+
+    // Check timing alignment
+    if (context.timing) {
+      const timingNorm = profile.temporalNorms[context.timing.period];
+      if (!timingNorm || timingNorm.acceptanceLevel < 0.5) {
+        insights.push(`Timing '${context.timing.period}' may not align with cultural practices.`);
+      }
+    }
+
+    // Inclusivity insights
+    const inclusivityScore = this.validateInclusivity(context.participants || [], profile);
+    if (inclusivityScore < 0.5) {
+      insights.push('Consider increasing participant diversity to align with cultural inclusivity norms.');
+    }
+
+    return insights;
+  }
+
+  /**
+   * Adapts a ritual to better fit regional cultural norms
+   * @param context Ritual context to adapt
+   * @returns Adapted RitualContext
+   */
+  async adaptRitualToRegion(context: RitualContext): Promise<RitualContext> {
+    const culturalProfile = await this.getCulturalProfile(context.region);
+    const adaptedContext = { ...context };
+
+    // Adapt symbols based on cultural norms
+    if (adaptedContext.symbols) {
+      adaptedContext.symbols = adaptedContext.symbols.map((symbol) => {
+        const norm = culturalProfile.symbolicNorms[symbol.name];
+        if (!norm || norm.acceptanceLevel < 0.5) {
+          return { ...symbol, name: this.suggestAlternativeSymbol(symbol.name, culturalProfile) };
+        }
+        return symbol;
+      });
+    }
+
+    this.logger.log(`Adapted ritual for region: ${context.region}`);
+    return adaptedContext;
+  }
+
+  /**
+   * Suggests an alternative symbol based on cultural norms
+   * @param currentSymbol Current symbol name
+   * @param profile Cultural profile for reference
+   * @returns Alternative symbol name
+   */
+  private suggestAlternativeSymbol(currentSymbol: string, profile: CulturalProfile): string {
+    const norms = profile.symbolicNorms;
+    const alternatives = Object.keys(norms).filter((key) => norms[key].acceptanceLevel >= 0.8);
+    return alternatives.length > 0 ? alternatives[0] : currentSymbol;
   }
 }
