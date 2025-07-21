@@ -1,8 +1,18 @@
-// Utility functions for validating ritual metadata
+// Ritual Metadata Validation Utilities
 
 /**
- * Validates ritual metadata against defined rules.
- * @param metadata - The metadata object to validate
+ * Interface defining the structure of ritual metadata
+ */
+interface RitualMetadata {
+  name: string;
+  description: string;
+  participants: string[];
+  timestamp: number;
+}
+
+/**
+ * Validates ritual metadata against defined rules
+ * @param metadata The metadata object to validate
  * @returns True if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
@@ -10,8 +20,8 @@ export function validateRitualMetadata(metadata: any): boolean {
 }
 
 /**
- * Returns an array of validation error messages for the given metadata.
- * @param metadata - The metadata object to validate
+ * Gets validation errors for ritual metadata
+ * @param metadata The metadata object to validate
  * @returns Array of error messages, empty if valid
  */
 export function getValidationErrors(metadata: any): string[] {
