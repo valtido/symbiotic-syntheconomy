@@ -1,0 +1,74 @@
+# Advanced Resource Management and Optimization Configuration
+# This YAML file defines policies and configurations for optimizing global infrastructure efficiency
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: resource-optimization
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-optimizer
+  namespace: resource-optimization
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: resource-optimizer
+  template:
+    metadata:
+      labels:
+        app: resource-optimizer
+    spec:
+      containers:
+      - name: optimizer
+        image: optimizer-image:latest
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        env:
+        - name: OPTIMIZATION_LEVEL
+          value: "advanced"
+        - name: MONITORING_ENABLED
+          value: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: optimization-config
+  namespace: resource-optimization
+data:
+  optimization_policy: |
+    {
+      "policy": "balanced",
+      "thresholds": {
+        "cpu": 80,
+        "memory": 75,
+        "network": 70
+      },
+      "auto_scaling": {
+        "enabled": true,
+        "min_replicas": 2,
+        "max_replicas": 10
+      }
+    }
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: resource-optimizer-monitor
+  namespace: resource-optimization
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: resource-optimizer
+  endpoints:
+  - port: metrics
+    interval: 15s
