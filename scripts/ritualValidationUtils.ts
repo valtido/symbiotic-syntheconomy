@@ -1,32 +1,26 @@
-// Ritual Metadata Validation Utilities
-
-interface RitualMetadata {
-  name: string;
-  description: string;
-  participants: string[];
-  timestamp: number;
-}
+// Utility functions for validating ritual metadata
 
 /**
- * Validates ritual metadata against defined rules
+ * Validates ritual metadata against defined rules.
  * @param metadata - The metadata object to validate
- * @returns true if metadata is valid, false otherwise
+ * @returns boolean - True if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
-  return getValidationErrors(metadata).length === 0;
+  const errors = getValidationErrors(metadata);
+  return errors.length === 0;
 }
 
 /**
- * Returns an array of validation error messages for the ritual metadata
+ * Returns an array of validation error messages for the given metadata.
  * @param metadata - The metadata object to validate
- * @returns Array of error messages, empty if valid
+ * @returns string[] - Array of error messages, empty if valid
  */
 export function getValidationErrors(metadata: any): string[] {
   const errors: string[] = [];
 
-  // Check if metadata is an object
+  // Check if metadata is an object and not null
   if (!metadata || typeof metadata !== 'object') {
-    errors.push('Metadata must be a valid object');
+    errors.push('Metadata must be a non-null object');
     return errors;
   }
 
@@ -45,10 +39,10 @@ export function getValidationErrors(metadata: any): string[] {
   }
 
   // Validate participants (non-empty array)
-  if (!metadata.participants || !Array.isArray(metadata.participants)) {
+  if (!Array.isArray(metadata.participants)) {
     errors.push('Participants must be an array');
   } else if (metadata.participants.length === 0) {
-    errors.push('Participants array cannot be empty');
+    errors.push('Participants array must not be empty');
   }
 
   // Validate timestamp (valid number)
