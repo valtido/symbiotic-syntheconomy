@@ -1,5 +1,6 @@
+// DAO Service for Cultural Heritage Council Elections
 import { ethers } from 'ethers';
-import { BaseProvider } from '@ethersproject/providers';
+import { v4 as uuidv4 } from 'uuid';
 
 // Define interfaces for election and vote data
 interface Election {
@@ -15,124 +16,113 @@ interface Election {
 // In-memory storage for elections (replace with database in production)
 const elections: { [id: string]: Election } = {};
 
-// DAO Service class for managing Cultural Heritage Council elections
 export class DaoService {
-  private provider: BaseProvider;
-
-  constructor() {
-    // Connect to Base testnet (Sepolia testnet for Base)
-    this.provider = new ethers.providers.JsonRpcProvider('https://sepolia.base.org');
-  }
-
   /**
    * Creates a new election for the Cultural Heritage Council
-   * @param title Election title
+   * @param title Title of the election
    * @param candidates List of candidate names or IDs
-   * @param duration Duration of election in seconds
+   * @param duration Duration of the election in seconds
    * @returns Election ID
    */
-  public createElection(title: string, candidates: string[], duration: number): string {
-    const electionId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(title + Date.now().toString()));
-    const startTime = Math.floor(Date.now() / 1000);
-    const endTime = startTime + duration;
+  createElection(title: string, candidates: string[], duration: number): string {
+    const electionId = uuidv4();
+    const now = Math.floor(Date.now() / 1000);
 
     elections[electionId] = {
       id: electionId,
       title,
       candidates,
-      startTime,
-      endTime,
-      votes: candidates.reduce((acc, candidate) => ({ ...acc, [candidate]: [] }), {}),
+      startTime: now,
+      endTime: now + duration,
+      votes: {},
       totalVotes: 0,
     };
 
+    // Initialize votes object for each candidate
+    candidates.forEach((candidate) => {
+      elections[electionId].votes[candidate] = [];
+    });
+
+    console.log(`Election created: ${title} (ID: ${electionId})`);
     return electionId;
   }
 
   /**
-   * Casts a vote in an election for a specific candidate
+   * Casts a vote in the specified election
    * @param electionId ID of the election
    * @param candidateId ID or name of the candidate
-   * @param voterAddress Base testnet address of the voter
-   * @returns True if vote is successfully cast
+   * @param voterAddress Base testnet wallet address of the voter
+   * @returns Success message or error
    */
-  public async castVote(electionId: string, candidateId: string, voterAddress: string): Promise<boolean> {
+  castVote(electionId: string, candidateId: string, voterAddress: string): string {
     const election = elections[electionId];
     if (!election) {
       throw new Error('Election not found');
     }
 
-    const currentTime = Math.floor(Date.now() / 1000);
-    if (currentTime < election.startTime || currentTime > election.endTime) {
-      throw new Error('Election is not active');
-    }
-
-    if (!election.candidates.includes(candidateId)) {
-      throw new Error('Invalid candidate');
-    }
-
-    // Verify voter address is a valid Base testnet address
-    if (!ethers.utils.isAddress(voterAddress)) {
+    // Validate voter address format (Base testnet compatible)
+    if (!ethers.isAddress(voterAddress)) {
       throw new Error('Invalid voter address');
     }
 
+    // Check if election is active
+    const now = Math.floor(Date.now() / 1000);
+    if (now < election.startTime || now > election.endTime) {
+      throw new Error('Election is not active');
+    }
+
+    // Check if candidate exists
+    if (!election.candidates.includes(candidateId)) {
+      throw new Error('Candidate not found');
+    }
+
     // Check if voter has already voted
-    const hasVoted = Object.values(election.votes).some(voters => voters.includes(voterAddress));
-    if (hasVoted) {
-      throw new Error('Voter has already cast a vote');
+    for (const candidateVotes of Object.values(election.votes)) {
+      if (candidateVotes.includes(voterAddress)) {
+        throw new Error('Voter has already cast a vote');
+      }
     }
 
     // Record the vote
     election.votes[candidateId].push(voterAddress);
-    election.totalVotes += 1;
-    return true;
+    election.totalVotes++;
+
+    console.log(`Vote cast in election ${electionId} for ${candidateId} by ${voterAddress}`);
+    return 'Vote successfully cast';
   }
 
   /**
-   * Retrieves the results of an election
+   * Retrieves the results of a specified election
    * @param electionId ID of the election
    * @returns Election results with vote counts per candidate
    */
-  public getElectionResults(electionId: string): { [candidateId: string]: number } {
+  getElectionResults(electionId: string): any {
     const election = elections[electionId];
     if (!election) {
       throw new Error('Election not found');
     }
 
-    const results: { [candidateId: string]: number } = {};
-    for (const candidate of election.candidates) {
-      results[candidate] = election.votes[candidate].length;
-    }
+    const results = {
+      title: election.title,
+      totalVotes: election.totalVotes,
+      candidates: election.candidates.map((candidate) => ({
+        id: candidate,
+        voteCount: election.votes[candidate].length,
+      })),
+      status: Math.floor(Date.now() / 1000) > election.endTime ? 'Ended' : 'Active',
+    };
 
+    console.log(`Results retrieved for election ${electionId}`);
     return results;
   }
 
   /**
-   * Helper method to check if an election exists
-   * @param electionId ID of the election
-   * @returns True if election exists
+   * Utility to check if an address is valid for Base testnet
+   * @param address Wallet address to validate
+   * @returns Boolean indicating if the address is valid
    */
-  public electionExists(electionId: string): boolean {
-    return !!elections[electionId];
-  }
-
-  /**
-   * Gets the status of an election (active or ended)
-   * @param electionId ID of the election
-   * @returns Election status
-   */
-  public getElectionStatus(electionId: string): { active: boolean; startTime: number; endTime: number } {
-    const election = elections[electionId];
-    if (!election) {
-      throw new Error('Election not found');
-    }
-
-    const currentTime = Math.floor(Date.now() / 1000);
-    return {
-      active: currentTime >= election.startTime && currentTime <= election.endTime,
-      startTime: election.startTime,
-      endTime: election.endTime,
-    };
+  isValidAddress(address: string): boolean {
+    return ethers.isAddress(address);
   }
 }
 
