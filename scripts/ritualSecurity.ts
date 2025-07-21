@@ -1,5 +1,4 @@
-// Ritual Security Utilities for Symbiotic Syntheconomy
-// This module provides encryption, access control, and audit trail functionalities for ritual data.
+// ritualSecurity.ts - Security utilities for encrypting ritual data, managing access, and audit trails
 
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -11,13 +10,12 @@ interface RitualData {
   name: string;
   description: string;
   sensitiveInfo: string;
-  createdAt: Date;
-  updatedAt: Date;
+  timestamp: Date;
 }
 
 interface AccessControl {
   userId: string;
-  role: 'admin' | 'participant' | 'observer';
+  role: 'admin' | 'user' | 'guest';
   permissions: string[];
 }
 
@@ -28,52 +26,83 @@ interface AuditLog {
   details: string;
 }
 
-// Security configuration
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
-const AUDIT_LOG_PATH = path.join(__dirname, 'audit_logs.json');
+// Configuration for security settings
+const SECURITY_CONFIG = {
+  encryptionAlgorithm: 'aes-256-cbc',
+  key: Buffer.from(process.env.ENCRYPTION_KEY || 'default-key-32-bytes-long-secure!', 'utf8'), // 32 bytes for AES-256
+  ivLength: 16, // Initialization vector length for AES
+  auditLogPath: path.join(__dirname, 'audit_logs'),
+};
+
+// Ensure audit log directory exists
+if (!fs.existsSync(SECURITY_CONFIG.auditLogPath)) {
+  fs.mkdirSync(SECURITY_CONFIG.auditLogPath, { recursive: true });
+}
 
 class RitualSecurity {
   private auditLogs: AuditLog[] = [];
 
   constructor() {
-    this.loadAuditLogs();
+    console.log('RitualSecurity initialized');
   }
 
-  // Encryption and Decryption
+  // Encryption for sensitive ritual data
   public encryptData(data: string): string {
-    try {
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
-      let encrypted = cipher.update(data);
-      encrypted = Buffer.concat([encrypted, cipher.final()]);
-      return iv.toString('hex') + ':' + encrypted.toString('hex');
-    } catch (error) {
-      throw new Error(`Encryption failed: ${error.message}`);
-    }
+    const iv = crypto.randomBytes(SECURITY_CONFIG.ivLength);
+    const cipher = crypto.createCipheriv(
+      SECURITY_CONFIG.encryptionAlgorithm,
+      SECURITY_CONFIG.key,
+      iv
+    );
+    let encrypted = cipher.update(data, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return iv.toString('hex') + ':' + encrypted;
   }
 
+  // Decryption for sensitive ritual data
   public decryptData(encryptedData: string): string {
-    try {
-      const textParts = encryptedData.split(':');
-      const iv = Buffer.from(textParts.shift()!, 'hex');
-      const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-      const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
-      let decrypted = decipher.update(encryptedText);
-      decrypted = Buffer.concat([decrypted, decipher.final()]);
-      return decrypted.toString();
-    } catch (error) {
-      throw new Error(`Decryption failed: ${error.message}`);
+    const [ivHex, encrypted] = encryptedData.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv(
+      SECURITY_CONFIG.encryptionAlgorithm,
+      SECURITY_CONFIG.key,
+      iv
+    );
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  }
+
+  // Authentication: Verify user credentials (mock implementation)
+  public authenticateUser(userId: string, password: string): boolean {
+    // Mock authentication logic (replace with real auth system)
+    const isValid = userId.length > 0 && password.length >= 8;
+    if (isValid) {
+      this.logAudit('authenticate', userId, 'User authenticated successfully');
+    } else {
+      this.logAudit('authenticate_failed', userId, 'Authentication failed');
     }
+    return isValid;
   }
 
-  // Access Control
-  public checkAccess(access: AccessControl, requiredPermission: string): boolean {
-    if (access.role === 'admin') return true;
-    return access.permissions.includes(requiredPermission);
+  // Authorization: Check user access based on role and permissions
+  public authorizeAccess(
+    accessControl: AccessControl,
+    requiredPermission: string
+  ): boolean {
+    const hasPermission = accessControl.permissions.includes(requiredPermission);
+    const isAdmin = accessControl.role === 'admin';
+    const authorized = isAdmin || hasPermission;
+    this.logAudit(
+      'authorize',
+      accessControl.userId,
+      `Access check for ${requiredPermission}: ${authorized ? 'Granted' : 'Denied'}`
+    );
+    return authorized;
   }
 
-  // Audit Trail
-  public logAction(action: string, userId: string, details: string): void {
+  // Audit Trail: Log actions for tracking
+  private logAudit(action: string, userId: string, details: string): void {
     const log: AuditLog = {
       action,
       userId,
@@ -81,86 +110,93 @@ class RitualSecurity {
       details,
     };
     this.auditLogs.push(log);
-    this.saveAuditLogs();
+    this.writeAuditLog(log);
   }
 
-  public getAuditLogs(): AuditLog[] {
-    return this.auditLogs;
+  // Write audit log to file
+  private writeAuditLog(log: AuditLog): void {
+    const logFilePath = path.join(
+      SECURITY_CONFIG.auditLogPath,
+      `audit_${new Date().toISOString().split('T')[0]}.log`
+    );
+    const logEntry = `[${log.timestamp.toISOString()}] ${log.action} by ${log.userId}: ${log.details}\n`;
+    fs.appendFileSync(logFilePath, logEntry, { flag: 'a+' });
   }
 
-  private loadAuditLogs(): void {
+  // Get audit logs for review
+  public getAuditLogs(date: string): string {
+    const logFilePath = path.join(SECURITY_CONFIG.auditLogPath, `audit_${date}.log`);
     try {
-      if (fs.existsSync(AUDIT_LOG_PATH)) {
-        const data = fs.readFileSync(AUDIT_LOG_PATH, 'utf8');
-        this.auditLogs = JSON.parse(data);
-      }
+      return fs.readFileSync(logFilePath, 'utf8');
     } catch (error) {
-      console.error(`Failed to load audit logs: ${error.message}`);
-      this.auditLogs = [];
+      return `No logs found for ${date}`;
     }
   }
 
-  private saveAuditLogs(): void {
-    try {
-      fs.writeFileSync(AUDIT_LOG_PATH, JSON.stringify(this.auditLogs, null, 2), 'utf8');
-    } catch (error) {
-      console.error(`Failed to save audit logs: ${error.message}`);
-    }
+  // Securely store ritual data
+  public secureRitualData(ritual: RitualData): RitualData {
+    const securedRitual = { ...ritual };
+    securedRitual.sensitiveInfo = this.encryptData(ritual.sensitiveInfo);
+    this.logAudit('secure_data', 'system', `Ritual ${ritual.id} sensitive data encrypted`);
+    return securedRitual;
   }
 
-  // Authentication (simple token-based for demo)
-  public generateAuthToken(userId: string): string {
-    const payload = { userId, timestamp: Date.now() };
-    return this.encryptData(JSON.stringify(payload));
-  }
-
-  public validateAuthToken(token: string): { userId: string } | null {
-    try {
-      const decrypted = this.decryptData(token);
-      const payload = JSON.parse(decrypted);
-      // Simple validation (e.g., check timestamp for expiration if needed)
-      return { userId: payload.userId };
-    } catch (error) {
-      console.error(`Token validation failed: ${error.message}`);
-      return null;
-    }
+  // Retrieve and decrypt ritual data
+  public retrieveRitualData(securedRitual: RitualData): RitualData {
+    const decryptedRitual = { ...securedRitual };
+    decryptedRitual.sensitiveInfo = this.decryptData(securedRitual.sensitiveInfo);
+    this.logAudit('retrieve_data', 'system', `Ritual ${securedRitual.id} sensitive data decrypted`);
+    return decryptedRitual;
   }
 }
 
 // Example usage
-export const security = new RitualSecurity();
+if (require.main === module) {
+  const security = new RitualSecurity();
 
-// Test function for demonstration
-export function runSecurityTests() {
-  console.log('Running Ritual Security Tests...');
-
-  // Test Encryption/Decryption
-  const testData = 'Sensitive Ritual Data';
+  // Test encryption and decryption
+  const testData = 'Secret Ritual Information';
   const encrypted = security.encryptData(testData);
-  const decrypted = security.decryptData(encrypted);
-  console.log('Encryption Test:', testData === decrypted ? 'Passed' : 'Failed');
   console.log('Encrypted:', encrypted);
+  const decrypted = security.decryptData(encrypted);
   console.log('Decrypted:', decrypted);
 
-  // Test Access Control
-  const userAccess: AccessControl = {
-    userId: 'user123',
-    role: 'participant',
-    permissions: ['read', 'participate'],
+  // Test authentication
+  const userId = 'testUser';
+  const password = 'securePass123';
+  console.log('Authentication:', security.authenticateUser(userId, password));
+
+  // Test authorization
+  const accessControl: AccessControl = {
+    userId,
+    role: 'user',
+    permissions: ['read_ritual'],
   };
-  const hasAccess = security.checkAccess(userAccess, 'read');
-  console.log('Access Control Test:', hasAccess ? 'Passed' : 'Failed');
+  console.log(
+    'Authorization (read_ritual):',
+    security.authorizeAccess(accessControl, 'read_ritual')
+  );
+  console.log(
+    'Authorization (write_ritual):',
+    security.authorizeAccess(accessControl, 'write_ritual')
+  );
 
-  // Test Audit Log
-  security.logAction('ritual_access', 'user123', 'User accessed ritual data');
-  console.log('Audit Logs:', security.getAuditLogs());
+  // Test ritual data security
+  const ritual: RitualData = {
+    id: 'ritual_001',
+    name: 'Test Ritual',
+    description: 'A test ritual',
+    sensitiveInfo: 'Secret Chant',
+    timestamp: new Date(),
+  };
+  const secured = security.secureRitualData(ritual);
+  console.log('Secured Ritual:', secured);
+  const retrieved = security.retrieveRitualData(secured);
+  console.log('Retrieved Ritual:', retrieved);
 
-  // Test Authentication
-  const token = security.generateAuthToken('user123');
-  const authResult = security.validateAuthToken(token);
-  console.log('Auth Token Test:', authResult?.userId === 'user123' ? 'Passed' : 'Failed');
+  // Test audit logs
+  const today = new Date().toISOString().split('T')[0];
+  console.log('Audit Logs for today:', security.getAuditLogs(today));
 }
 
-if (require.main === module) {
-  runSecurityTests();
-}
+export default RitualSecurity;
