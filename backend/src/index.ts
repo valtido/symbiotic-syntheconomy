@@ -23,7 +23,7 @@ config();
 
 const fastify = Fastify({
   logger: {
-    level: process.env.LOG_LEVEL || 'info',
+    level: process.env['LOG_LEVEL'] || 'info',
     transport: {
       target: 'pino-pretty',
       options: {
@@ -39,7 +39,7 @@ const fastify = Fastify({
 async function registerPlugins() {
   await fastify.register(cors, {
     origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
+      process.env['FRONTEND_URL'] || 'http://localhost:3000',
       'http://localhost:3007', // Dashboard
       'http://localhost:3009', // Frontend (new port)
     ],
@@ -72,7 +72,7 @@ async function registerPlugins() {
         description: 'API for bioregional ritual submission and validation',
         version: '1.0.0',
       },
-      host: process.env.API_HOST || 'localhost:3001',
+      host: process.env['API_HOST'] || 'localhost:3001',
       schemes: ['http', 'https'],
       consumes: ['application/json'],
       produces: ['application/json'],
@@ -94,6 +94,8 @@ async function registerRoutes() {
 
 // Initialize services
 async function initializeServices() {
+  await validateRitualRoute(fastify); // 👈 This registers the route
+
   // Initialize database connection
   const dbService = new DatabaseService();
   await dbService.connect();
@@ -131,8 +133,8 @@ async function start() {
     await registerRoutes();
     await initializeServices();
 
-    const port = parseInt(process.env.PORT || '3006');
-    const host = process.env.HOST || '0.0.0.0';
+    const port = parseInt(process.env['PORT'] || '3006');
+    const host = process.env['HOST'] || '0.0.0.0';
 
     await fastify.listen({ port, host });
     fastify.log.info(`Server listening on ${host}:${port}`);
@@ -146,3 +148,50 @@ async function start() {
 }
 
 start();
+function validateRitualRoute(fastify: any) {
+  // Register the validate-ritual endpoint
+  fastify.post('/api/validate-ritual', async (request: any, reply: any) => {
+    try {
+      const { ritualId, participant, timestamp } = request.body as any;
+
+      // Basic validation
+      if (!ritualId || !participant || !timestamp) {
+        return reply.status(400).send({
+          error: 'Missing required fields: ritualId, participant, timestamp',
+        });
+      }
+
+      // Validate Ethereum address format
+      const addressRegex = /^0x[a-fA-F0-9]{40}$/;
+      if (!addressRegex.test(participant)) {
+        return reply.status(400).send({
+          error: 'Invalid participant address format',
+        });
+      }
+
+      // Validate timestamp (must be recent)
+      const now = Date.now();
+      const timeDiff = Math.abs(now - timestamp);
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+      if (timeDiff > maxAge) {
+        return reply.status(400).send({
+          error: 'Timestamp too old or in the future',
+        });
+      }
+
+      return {
+        valid: true,
+        ritualId,
+        participant,
+        timestamp,
+        validatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      fastify.log.error('Validation error:', error);
+      return reply.status(500).send({
+        error: 'Internal validation error',
+      });
+    }
+  });
+}
