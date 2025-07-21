@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const PORT = 3009;
+const PORT = 3010;
 
 // Use more tolerant JSON parsing
 app.use(

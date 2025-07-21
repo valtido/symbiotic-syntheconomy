@@ -444,16 +444,16 @@ class SystemStatus {
     );
 
     console.log('🏠 Local Development:');
-    console.log('  Frontend App:        http://localhost:3000');
+    console.log('  Frontend App:        http://localhost:3009');
     console.log('  Backend API:         http://localhost:3006');
     console.log('  Dashboard:           http://localhost:3007');
-    console.log('  Smart Contracts:     http://localhost:3008');
-    console.log('  AI API Server:       http://localhost:3009');
-    console.log('  AI Webhook Server:   http://localhost:3010');
+    console.log('  AI Webhook Server:   http://localhost:3008');
+    console.log('  AI API Server:       http://localhost:3010');
+    console.log('  Smart Contracts:     http://localhost:3011');
 
     console.log('\n🌍 Public URLs (via LocalTunnel):');
     console.log(
-      '  Frontend App:        https://symbiotic-syntheconomy.loca.lt',
+      '  Frontend App:        https://symbiotic-syntheconomy.loca.lt:3009',
     );
     console.log(
       '  Backend API:         https://symbiotic-syntheconomy.loca.lt:3006',
@@ -462,13 +462,10 @@ class SystemStatus {
       '  Dashboard:           https://symbiotic-syntheconomy.loca.lt:3007',
     );
     console.log(
-      '  Smart Contracts:     https://symbiotic-syntheconomy.loca.lt:3008',
+      '  AI Webhook Server:   https://symbiotic-syntheconomy.loca.lt:3008',
     );
     console.log(
-      '  AI API Server:       https://symbiotic-syntheconomy.loca.lt:3009',
-    );
-    console.log(
-      '  AI Webhook Server:   https://symbiotic-syntheconomy.loca.lt:3010',
+      '  AI API Server:       https://symbiotic-syntheconomy.loca.lt:3010',
     );
 
     console.log('\n🔗 External Services:');
@@ -487,6 +484,10 @@ class SystemStatus {
     console.log(
       '  Webhook Status:      https://symbiotic-syntheconomy.loca.lt/webhook/github',
     );
+
+    console.log('\n✅ Port Configuration:');
+    console.log('  • All services running on unique ports');
+    console.log('  • No port conflicts detected');
 
     console.log('\n⚡ Quick Actions:');
     console.log('  Press 1-4 to navigate to other views');

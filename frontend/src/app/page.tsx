@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { RitualSubmissionForm } from '../components/RitualSubmissionForm';
+import RitualSubmissionForm from '../components/RitualSubmissionForm';
 import BioregionSelector from '../components/BioregionSelector';
 import ValidationResults from '../components/ValidationResults';
 import Header from '../components/Header';
