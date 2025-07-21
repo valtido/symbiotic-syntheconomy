@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: performance-optimization-config
+  namespace: symbiotic-syntheconomy
+data:
+  # Cache configuration for global ritual access
+  cache.enabled: "true"
+  cache.type: "redis"
+  cache.ttl: "3600"  # Time to live in seconds (1 hour)
+  cache.maxItems: "10000"
+  cache.redis.host: "redis-service"
+  cache.redis.port: "6379"
+  cache.redis.db: "0"
+  
+  # Performance optimization settings
+  performance.compression: "true"
+  performance.minify: "true"
+  performance.rateLimit.enabled: "true"
+  performance.rateLimit.requestsPerSecond: "100"
+  performance.rateLimit.burstSize: "200"
+  
+  # CDN settings for static assets
+  cdn.enabled: "true"
+  cdn.provider: "cloudflare"
+  cdn.cacheLevel: "aggressive"
+  
+  # Worker thread optimization
+  workers.enabled: "true"
+  workers.count: "4"
+  workers.maxQueueSize: "1000"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ritual-access-api
+  namespace: symbiotic-syntheconomy
+  labels:
+    app: ritual-access-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ritual-access-api
+  template:
+    metadata:
+      labels:
+        app: ritual-access-api
+    spec:
+      containers:
+      - name: ritual-access-api
+        image: symbiotic/syntheconomy-api:latest
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: performance-optimization-config
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1024Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 20
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ritual-access-api-service
+  namespace: symbiotic-syntheconomy
+spec:
+  selector:
+    app: ritual-access-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ritual-access-ingress
+  namespace: symbiotic-syntheconomy
+  annotations:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, GET, POST, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-origins: "*"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-burst: "200"
+spec:
+  tls:
+  - hosts:
+    - api.syntheconomy.io
+    secretName: syntheconomy-tls
+  rules:
+  - host: api.syntheconomy.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ritual-access-api-service
+            port:
+              number: 80
