@@ -1,19 +1,9 @@
 // Utility functions for validating ritual metadata
 
 /**
- * Interface defining the expected structure of ritual metadata
- */
-interface RitualMetadata {
-  name: string;
-  description: string;
-  participants: string[];
-  timestamp: number;
-}
-
-/**
  * Validates ritual metadata against defined rules
  * @param metadata - The metadata object to validate
- * @returns boolean - True if metadata is valid, false otherwise
+ * @returns true if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
   const errors = getValidationErrors(metadata);
@@ -23,7 +13,7 @@ export function validateRitualMetadata(metadata: any): boolean {
 /**
  * Gets validation errors for ritual metadata
  * @param metadata - The metadata object to validate
- * @returns string[] - Array of error messages, empty if valid
+ * @returns Array of error messages, empty if valid
  */
 export function getValidationErrors(metadata: any): string[] {
   const errors: string[] = [];
@@ -49,14 +39,14 @@ export function getValidationErrors(metadata: any): string[] {
   }
 
   // Validate participants (non-empty array)
-  if (!metadata.participants || !Array.isArray(metadata.participants)) {
+  if (!Array.isArray(metadata.participants)) {
     errors.push('Participants must be an array');
   } else if (metadata.participants.length === 0) {
-    errors.push('Participants array cannot be empty');
+    errors.push('Participants array must not be empty');
   }
 
   // Validate timestamp (valid number)
-  if (metadata.timestamp === undefined || typeof metadata.timestamp !== 'number' || isNaN(metadata.timestamp)) {
+  if (typeof metadata.timestamp !== 'number' || isNaN(metadata.timestamp)) {
     errors.push('Timestamp must be a valid number');
   }
 
