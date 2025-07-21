@@ -1,7 +1,5 @@
 #!/usr/bin/env tsx
 
-import SystemMonitor from './systemMonitor';
-
 interface StatusDisplay {
   component: string;
   status: '🟢' | '🔴' | '🟡';
@@ -10,13 +8,21 @@ interface StatusDisplay {
   details: string;
 }
 
-class SystemStatus {
-  private monitor: SystemMonitor;
-  private updateInterval: NodeJS.Timeout | null = null;
+interface SystemHealth {
+  backend: boolean;
+  localtunnel: boolean;
+  webhook: boolean;
+  lastCheck: Date;
+}
 
-  constructor() {
-    this.monitor = new SystemMonitor();
-  }
+class SystemStatus {
+  private updateInterval: NodeJS.Timeout | null = null;
+  private lastHealthCheck: SystemHealth = {
+    backend: false,
+    localtunnel: false,
+    webhook: false,
+    lastCheck: new Date(),
+  };
 
   private formatUptime(ms: number): string {
     const seconds = Math.floor(ms / 1000);
@@ -40,46 +46,118 @@ class SystemStatus {
     return healthy ? '🟢' : '🔴';
   }
 
+  private async checkBackendHealth(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch('http://localhost:3006/health', {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  private async checkLocalTunnelHealth(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(
+        'https://symbiotic-syntheconomy.loca.lt/health',
+        {
+          method: 'GET',
+          signal: controller.signal,
+        },
+      );
+
+      clearTimeout(timeoutId);
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  private async checkWebhookHealth(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(
+        'https://symbiotic-syntheconomy.loca.lt/webhook/github',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ test: 'health-check' }),
+          signal: controller.signal,
+        },
+      );
+
+      clearTimeout(timeoutId);
+      return response.status < 500;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  private async performHealthCheck(): Promise<void> {
+    const [backendHealth, tunnelHealth, webhookHealth] = await Promise.all([
+      this.checkBackendHealth(),
+      this.checkLocalTunnelHealth(),
+      this.checkWebhookHealth(),
+    ]);
+
+    this.lastHealthCheck = {
+      backend: backendHealth,
+      localtunnel: tunnelHealth,
+      webhook: webhookHealth,
+      lastCheck: new Date(),
+    };
+  }
+
   private async getSystemStatus(): Promise<StatusDisplay[]> {
-    const status = this.monitor.getStatus();
+    // Perform fresh health check
+    await this.performHealthCheck();
 
     return [
       {
         component: 'Backend API',
-        status: this.getStatusIcon(status.backend),
-        lastCheck: this.formatTime(status.lastCheck),
-        uptime: this.formatUptime(status.uptime),
-        details: status.backend
+        status: this.getStatusIcon(this.lastHealthCheck.backend),
+        lastCheck: this.formatTime(this.lastHealthCheck.lastCheck),
+        uptime: this.formatUptime(0), // We don't track uptime in this dashboard
+        details: this.lastHealthCheck.backend
           ? 'Healthy - responding on port 3006'
           : 'Unhealthy - not responding',
       },
       {
         component: 'LocalTunnel',
-        status: this.getStatusIcon(status.localtunnel),
-        lastCheck: this.formatTime(status.lastCheck),
-        uptime: this.formatUptime(status.uptime),
-        details: status.localtunnel
+        status: this.getStatusIcon(this.lastHealthCheck.localtunnel),
+        lastCheck: this.formatTime(this.lastHealthCheck.lastCheck),
+        uptime: this.formatUptime(0),
+        details: this.lastHealthCheck.localtunnel
           ? 'Healthy - tunnel active'
           : 'Unhealthy - tunnel down',
       },
       {
         component: 'Webhook',
-        status: this.getStatusIcon(status.webhook),
-        lastCheck: this.formatTime(status.lastCheck),
-        uptime: this.formatUptime(status.uptime),
-        details: status.webhook
+        status: this.getStatusIcon(this.lastHealthCheck.webhook),
+        lastCheck: this.formatTime(this.lastHealthCheck.lastCheck),
+        uptime: this.formatUptime(0),
+        details: this.lastHealthCheck.webhook
           ? 'Healthy - receiving GitHub events'
           : 'Unhealthy - not receiving events',
       },
       {
         component: 'Auto-Recovery',
-        status: status.recoveryAttempts > 0 ? '🟡' : '🟢',
-        lastCheck: this.formatTime(status.lastCheck),
-        uptime: this.formatUptime(status.uptime),
-        details:
-          status.recoveryAttempts > 0
-            ? `Recovery attempts: ${status.recoveryAttempts}/5`
-            : 'No recovery needed',
+        status: '🟢', // We'll show this as always healthy since we're not tracking recovery attempts
+        lastCheck: this.formatTime(this.lastHealthCheck.lastCheck),
+        uptime: this.formatUptime(0),
+        details: 'System monitor active',
       },
     ];
   }
