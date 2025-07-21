@@ -438,6 +438,9 @@ class SystemStatus {
     console.log(
       'Navigation: 1-Main | 2-Tasks | 3-Logs | 4-Commands | q-Quit | r-Refresh',
     );
+    console.log(
+      'Actions: c-Preload | n-Next | a-All | g-Generate | p-Process | s-API | w-Webhook | m-Monitor',
+    );
   }
 
   private async handleKeyPress(key: string): Promise<void> {
