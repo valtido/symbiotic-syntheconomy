@@ -1,327 +1,98 @@
-// Mock IPFS implementation for development
-// In production, you would use a real IPFS client
-let create: any = null;
+import axios from 'axios';
+import { createReadStream, createWriteStream } from 'fs';
+import { promisify } from 'util';
+import { pipeline } from 'stream';
 
-export interface IPFSMetadata {
-  name: string;
-  bioregionId: string;
-  description: string;
-  culturalContext: string;
-  content: string;
-  author: string;
-  culturalReferences: string[];
-  permissions: {
-    culturalConsultation: boolean;
-    communityApproval: boolean;
-    expertReview: boolean;
-  };
-  validation: {
-    esepScore: number;
-    cedaScore: number;
-    narrativeScore: number;
-    isApproved: boolean;
-    feedback: string[];
-    culturalReferences: string[];
-    validationTimestamp: string;
-  };
-  submittedAt: string;
-  version: string;
-}
+const pipelineAsync = promisify(pipeline);
 
-export interface IPFSResult {
-  hash: string;
-  size: number;
-  timestamp: string;
-}
+// IPFS API endpoint (can be configured for local or remote IPFS nodes)
+const IPFS_API_URL = process.env.IPFS_API_URL || 'http://localhost:5001/api/v0';
 
+/**
+ * IPFS Service to handle ritual metadata storage and retrieval
+ */
 export class IPFSService {
-  private ipfs: any;
-  private isConnected: boolean = false;
+  private apiUrl: string;
 
-  constructor() {
-    // Mock IPFS implementation for development
-    console.log('🔧 Using mock IPFS implementation for development');
-    this.isConnected = true;
-
-    // Mock IPFS client
-    this.ipfs = {
-      add: async (data: any) => {
-        const mockHash = `Qm${Math.random()
-          .toString(36)
-          .substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-        return {
-          cid: { toString: () => mockHash },
-          size:
-            typeof data === 'string'
-              ? data.length
-              : JSON.stringify(data).length,
-        };
-      },
-      cat: async function* (hash: string) {
-        yield Buffer.from('{"mock": "data"}');
-      },
-      pin: {
-        add: async (hash: string) => {
-          console.log('Mock pinning:', hash);
-        },
-      },
-      files: {
-        stat: async (path: string) => {
-          return { cid: path.split('/').pop() };
-        },
-      },
-    };
+  constructor(apiUrl: string = IPFS_API_URL) {
+    this.apiUrl = apiUrl;
   }
 
   /**
-   * Store ritual metadata on IPFS
+   * Uploads metadata to IPFS and returns the hash
+   * @param metadata - The metadata object to upload
+   * @returns The IPFS hash (CID) of the uploaded metadata
+   * @throws Error if upload fails
    */
-  async storeMetadata(metadata: IPFSMetadata): Promise<string> {
-    if (!this.isConnected) {
-      throw new Error('IPFS client not connected');
-    }
-
+  async uploadMetadata(metadata: Record<string, any>): Promise<string> {
     try {
       // Convert metadata to JSON string
-      const jsonData = JSON.stringify(metadata, null, 2);
+      const metadataString = JSON.stringify(metadata);
+      const metadataBuffer = Buffer.from(metadataString);
 
-      // Add to IPFS
-      const result = await this.ipfs.add(jsonData, {
-        pin: true,
-        cidVersion: 1,
+      // Prepare form data for IPFS API
+      const formData = new FormData();
+      formData.append('file', metadataBuffer, { filename: 'metadata.json' });
+
+      // Post to IPFS API
+      const response = await axios.post(`${this.apiUrl}/add`, formData, {
+        headers: {
+          ...formData.getHeaders(),
+        },
       });
 
-      console.log('Metadata stored on IPFS:', {
-        hash: result.cid.toString(),
-        size: result.size,
-        timestamp: new Date().toISOString(),
-      });
-
-      return result.cid.toString();
-    } catch (error) {
-      console.error('Failed to store metadata on IPFS:', error);
-      throw new Error(
-        `IPFS storage failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
-    }
-  }
-
-  /**
-   * Retrieve metadata from IPFS
-   */
-  async retrieveMetadata(hash: string): Promise<IPFSMetadata> {
-    if (!this.isConnected) {
-      throw new Error('IPFS client not connected');
-    }
-
-    try {
-      // Get data from IPFS
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of this.ipfs.cat(hash)) {
-        chunks.push(chunk);
+      if (!response.data || !response.data.Hash) {
+        throw new Error('Failed to get IPFS hash from response');
       }
 
-      // Combine chunks and parse JSON
-      const data = Buffer.concat(chunks).toString('utf-8');
-      const metadata = JSON.parse(data) as IPFSMetadata;
-
-      return metadata;
+      return response.data.Hash;
     } catch (error) {
-      console.error('Failed to retrieve metadata from IPFS:', error);
-      throw new Error(
-        `IPFS retrieval failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
+      console.error('Error uploading metadata to IPFS:', error);
+      throw new Error(`IPFS upload failed: ${error.message}`);
     }
   }
 
   /**
-   * Store ritual content file on IPFS
+   * Retrieves metadata from IPFS using the provided hash
+   * @param hash - The IPFS hash (CID) of the metadata
+   * @returns The metadata object
+   * @throws Error if retrieval fails
    */
-  async storeContent(content: string, filename: string): Promise<string> {
-    if (!this.isConnected) {
-      throw new Error('IPFS client not connected');
-    }
-
+  async getMetadata(hash: string): Promise<Record<string, any>> {
     try {
-      // Create file object
-      const file = {
-        path: filename,
-        content: Buffer.from(content, 'utf-8'),
-      };
-
-      // Add to IPFS
-      const result = await this.ipfs.add(file, {
-        pin: true,
-        cidVersion: 1,
+      const response = await axios.post(`${this.apiUrl}/cat`, null, {
+        params: { arg: hash },
       });
 
-      console.log('Content stored on IPFS:', {
-        hash: result.cid.toString(),
-        filename,
-        size: result.size,
-      });
-
-      return result.cid.toString();
-    } catch (error) {
-      console.error('Failed to store content on IPFS:', error);
-      throw new Error(
-        `IPFS content storage failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
-    }
-  }
-
-  /**
-   * Pin content on IPFS to ensure persistence
-   */
-  async pinContent(hash: string): Promise<void> {
-    if (!this.isConnected) {
-      throw new Error('IPFS client not connected');
-    }
-
-    try {
-      await this.ipfs.pin.add(hash);
-      console.log('Content pinned on IPFS:', hash);
-    } catch (error) {
-      console.error('Failed to pin content on IPFS:', error);
-      // Don't throw error for pinning failures as content might already be pinned
-    }
-  }
-
-  /**
-   * Check if content exists on IPFS
-   */
-  async contentExists(hash: string): Promise<boolean> {
-    if (!this.isConnected) {
-      return false;
-    }
-
-    try {
-      // Try to get file stats
-      const stats = await this.ipfs.files.stat(`/ipfs/${hash}`);
-      return stats && stats.cid;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  /**
-   * Get IPFS gateway URL for content
-   */
-  getGatewayUrl(hash: string): string {
-    const gateway = process.env['IPFS_GATEWAY'] || 'https://ipfs.io/ipfs';
-    return `${gateway}/${hash}`;
-  }
-
-  /**
-   * Health check for IPFS connection
-   */
-  async healthCheck(): Promise<{ connected: boolean; error?: string }> {
-    if (!this.isConnected) {
-      return { connected: false, error: 'IPFS client not initialized' };
-    }
-
-    try {
-      // Try to get IPFS version as a simple health check
-      const version = await this.ipfs.version();
-      return { connected: true };
-    } catch (error) {
-      return {
-        connected: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  /**
-   * Store multiple files in a directory structure
-   */
-  async storeDirectory(
-    files: Array<{ path: string; content: string }>,
-  ): Promise<string> {
-    if (!this.isConnected) {
-      throw new Error('IPFS client not connected');
-    }
-
-    try {
-      const fileObjects = files.map((file) => ({
-        path: file.path,
-        content: Buffer.from(file.content, 'utf-8'),
-      }));
-
-      let lastResult;
-      for await (const result of this.ipfs.addAll(fileObjects, {
-        pin: true,
-        cidVersion: 1,
-      })) {
-        lastResult = result;
+      if (!response.data) {
+        throw new Error('Failed to retrieve metadata from IPFS');
       }
 
-      console.log('Directory stored on IPFS:', {
-        hash: lastResult?.cid.toString(),
-        fileCount: files.length,
+      // Parse the retrieved data as JSON
+      return JSON.parse(response.data.toString());
+    } catch (error) {
+      console.error('Error retrieving metadata from IPFS:', error);
+      throw new Error(`IPFS retrieval failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Validates if a given IPFS hash exists and is accessible
+   * @param hash - The IPFS hash (CID) to validate
+   * @returns Boolean indicating if the hash is valid and accessible
+   */
+  async validateHash(hash: string): Promise<boolean> {
+    try {
+      await axios.post(`${this.apiUrl}/object/stat`, null, {
+        params: { arg: hash },
       });
-
-      return lastResult?.cid.toString() || '';
+      return true;
     } catch (error) {
-      console.error('Failed to store directory on IPFS:', error);
-      throw new Error(
-        `IPFS directory storage failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
-    }
-  }
-
-  /**
-   * Get file size from IPFS
-   */
-  async getFileSize(hash: string): Promise<number> {
-    if (!this.isConnected) {
-      throw new Error('IPFS client not connected');
-    }
-
-    try {
-      const stats = await this.ipfs.files.stat(`/ipfs/${hash}`);
-      return stats.size || 0;
-    } catch (error) {
-      console.error('Failed to get file size from IPFS:', error);
-      return 0;
-    }
-  }
-
-  /**
-   * Validate IPFS hash format
-   */
-  static isValidHash(hash: string): boolean {
-    // Basic CID validation (CIDv0 or CIDv1)
-    const cidRegex = /^Qm[1-9A-HJ-NP-Za-km-z]{44}$|^bafy[a-z2-7]{55}$/;
-    return cidRegex.test(hash);
-  }
-
-  /**
-   * Generate IPFS hash for content (without storing)
-   */
-  async generateHash(content: string): Promise<string> {
-    if (!this.isConnected) {
-      throw new Error('IPFS client not connected');
-    }
-
-    try {
-      const result = await this.ipfs.util.cid(Buffer.from(content, 'utf-8'));
-      return result.toString();
-    } catch (error) {
-      console.error('Failed to generate IPFS hash:', error);
-      throw new Error(
-        `Hash generation failed: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      );
+      console.error('Error validating IPFS hash:', error);
+      return false;
     }
   }
 }
+
+// Export a singleton instance of the service
+export default new IPFSService();

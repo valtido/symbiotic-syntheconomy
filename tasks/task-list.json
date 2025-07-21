@@ -1,95 +1,223 @@
 {
-  "project": "Symbiotic Syntheconomy",
-  "version": "1.0.0",
+  "project": "Symbiotic Syntheconomy - Global Regeneration Ceremony (GRC)",
+  "version": "2.0.0",
+  "phase": "Core Platform Development",
+  "objectives": [
+    "Implement ritual submission API with .grc file support",
+    "Deploy AI validation filters (ESEP + CEDA)",
+    "Set up IPFS storage for ritual metadata",
+    "Deploy smart contracts on Base testnet",
+    "Create DAO governance system",
+    "Build bioregion simulation framework"
+  ],
   "tasks": [
     {
       "id": "task-001",
-      "task": "Create ritual metadata validation utilities",
-      "filePath": "scripts/ritualValidationUtils.ts",
-      "requirements": "Create TypeScript utility that validates ritual metadata with functions: validateRitualMetadata(metadata: any): boolean and getValidationErrors(metadata: any): string[]. Validate name (3-50 chars), description (10-500 chars), participants (non-empty array), and timestamp (valid number).",
-      "priority": "high",
-      "category": "validation",
+      "task": "Implement .grc file parser and validator",
+      "filePath": "backend/src/utils/grcParser.ts",
+      "requirements": "Create TypeScript utility to parse and validate .grc files. Support UTF-8 encoding, max 10MB size, required fields (ritual name, bioregion ID, description, cultural context). Return structured data with validation errors.",
+      "priority": "critical",
+      "category": "file-processing",
       "status": "completed",
-      "createdAt": "2025-07-21T10:43:17.246Z",
-      "completedAt": "2025-07-21T11:21:24.343Z"
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "Ritual Submission System",
+      "completedAt": "2025-07-21T11:42:23.496Z"
     },
     {
       "id": "task-002",
-      "task": "Create ritual scheduler system",
-      "filePath": "scripts/ritualScheduler.ts",
-      "requirements": "Create a TypeScript scheduler that can schedule rituals with metadata, handle conflicts, and manage ritual timing. Include functions for scheduling, rescheduling, and canceling rituals.",
-      "priority": "high",
-      "category": "scheduling",
+      "task": "Create ESEP (Ethical-Spiritual Evaluation Protocol) filter",
+      "filePath": "backend/src/ai/esepFilter.ts",
+      "requirements": "Implement ESEP algorithm that evaluates ethical-spiritual balance (0.0-1.0 scale, max 0.7 threshold). Analyze ethical keywords (justice, compassion, respect), spiritual keywords (sacred, divine, harmony), and balance assessment. Return score and detailed feedback.",
+      "priority": "critical",
+      "category": "ai-validation",
       "status": "completed",
-      "createdAt": "2025-07-21T10:43:17.247Z",
-      "completedAt": "2025-07-21T11:21:24.343Z"
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "AI Validation Engine",
+      "completedAt": "2025-07-21T11:42:39.216Z"
     },
     {
       "id": "task-003",
-      "task": "Create ritual logging system",
-      "filePath": "scripts/ritualLogger.ts",
-      "requirements": "Create a TypeScript logging system that logs ritual activities, participants, outcomes, and metadata. Include functions for logging, querying logs, and exporting log data.",
-      "priority": "medium",
-      "category": "logging",
+      "task": "Create CEDA (Cultural Expression Detection Algorithm) filter",
+      "filePath": "backend/src/ai/cedaFilter.ts",
+      "requirements": "Implement CEDA algorithm to detect cultural references and expressions. Count cultural keywords, traditional practices, indigenous terms, and cultural context. Minimum 2 cultural references required for approval. Return count and identified references.",
+      "priority": "critical",
+      "category": "ai-validation",
       "status": "completed",
-      "createdAt": "2025-07-21T10:43:17.247Z",
-      "completedAt": "2025-07-21T11:21:24.343Z"
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "AI Validation Engine",
+      "completedAt": "2025-07-21T11:42:52.150Z"
     },
     {
       "id": "task-004",
-      "task": "Create ritual notification system",
-      "filePath": "scripts/ritualNotifier.ts",
-      "requirements": "Create a TypeScript notification system that sends notifications to participants before, during, and after rituals. Include email, push, and in-app notification support.",
-      "priority": "medium",
-      "category": "notifications",
+      "task": "Set up IPFS integration for ritual metadata storage",
+      "filePath": "backend/src/services/ipfsService.ts",
+      "requirements": "Create IPFS service to store ritual metadata. Functions: uploadMetadata(metadata), getMetadata(hash), validateHash(hash). Use IPFS HTTP API, handle errors, return IPFS hashes for blockchain logging.",
+      "priority": "high",
+      "category": "storage",
       "status": "completed",
-      "createdAt": "2025-07-21T10:43:17.247Z",
-      "completedAt": "2025-07-21T11:21:24.343Z"
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "IPFS Storage System",
+      "completedAt": "2025-07-21T11:43:04.159Z"
     },
     {
       "id": "task-005",
-      "task": "Create ritual analytics dashboard",
-      "filePath": "scripts/ritualAnalytics.ts",
-      "requirements": "Create a TypeScript analytics system that provides insights into ritual participation, success rates, and trends. Include data aggregation, visualization, and reporting functions.",
-      "priority": "low",
-      "category": "analytics",
+      "task": "Deploy GRC_RitualSubmission smart contract to Base testnet",
+      "filePath": "contracts/GRC_RitualSubmission.sol",
+      "requirements": "Create Solidity contract for ritual submission logging on Base testnet. Include: submitRitual(bioregionId, ipfsHash, esepScore, cedaScore), getRitual(ritualId), validateRitual(ritualId, isApproved). Deploy and verify on Base testnet.",
+      "priority": "critical",
+      "category": "blockchain",
       "status": "completed",
-      "createdAt": "2025-07-21T10:43:17.247Z",
-      "completedAt": "2025-07-21T11:21:24.344Z"
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "Blockchain Integration",
+      "completedAt": "2025-07-21T11:43:15.112Z"
     },
     {
       "id": "task-006",
-      "task": "Create ritual export/import utilities",
-      "filePath": "scripts/ritualDataManager.ts",
-      "requirements": "Create TypeScript utilities for exporting and importing ritual data in various formats (JSON, CSV, XML). Include data validation and transformation functions.",
-      "priority": "low",
-      "category": "data-management",
+      "task": "Deploy SymbiosisPledge smart contract to Base testnet",
+      "filePath": "contracts/SymbiosisPledge.sol",
+      "requirements": "Create Solidity contract for bioregional pledges on Base testnet. Include: createPledge(bioregionId, pledgeType, description, amount), fulfillPledge(pledgeId, proofHash), verifyPledge(pledgeId, isVerified). Support 10 pledge types.",
+      "priority": "high",
+      "category": "blockchain",
       "status": "completed",
-      "createdAt": "2025-07-21T10:43:17.247Z",
-      "completedAt": "2025-07-21T11:21:24.344Z"
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "Blockchain Integration",
+      "completedAt": "2025-07-21T11:43:30.764Z"
     },
     {
       "id": "task-007",
-      "task": "Create ritual backup system",
-      "filePath": "scripts/ritualBackup.ts",
-      "requirements": "Create a TypeScript backup system that automatically backs up ritual data to local storage and cloud services. Include backup scheduling, restoration, and verification functions.",
-      "priority": "medium",
-      "category": "backup",
+      "task": "Create ritual submission API endpoint",
+      "filePath": "backend/src/routes/rituals.ts",
+      "requirements": "Implement POST /api/v1/rituals/submit endpoint. Handle multipart/form-data with .grc file, validate inputs, process through AI filters, store on IPFS, log to blockchain. Return ritualId, ipfsHash, transactionHash, and validation results.",
+      "priority": "critical",
+      "category": "api",
       "status": "completed",
-      "createdAt": "2025-07-21T10:43:17.247Z",
-      "completedAt": "2025-07-21T11:21:24.344Z"
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "Ritual Submission System",
+      "completedAt": "2025-07-21T11:43:44.959Z"
     },
     {
       "id": "task-008",
-      "task": "Create ritual security utilities",
-      "filePath": "scripts/ritualSecurity.ts",
-      "requirements": "Create TypeScript security utilities for encrypting sensitive ritual data, managing access controls, and implementing audit trails. Include encryption, authentication, and authorization functions.",
+      "task": "Create bioregion management system",
+      "filePath": "backend/src/services/bioregionService.ts",
+      "requirements": "Create bioregion service with functions: registerBioregion(id, name, description), getBioregion(id), listBioregions(), getBioregionRituals(id). Support 3 initial bioregions for simulation.",
       "priority": "high",
-      "category": "security",
+      "category": "data-management",
       "status": "completed",
-      "createdAt": "2025-07-21T10:43:17.247Z",
-      "completedAt": "2025-07-21T11:21:24.344Z"
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "Bioregion Framework",
+      "completedAt": "2025-07-21T11:43:57.845Z"
+    },
+    {
+      "id": "task-009",
+      "task": "Implement DAO governance election system",
+      "filePath": "backend/src/services/daoService.ts",
+      "requirements": "Create DAO service for Cultural Heritage Council elections. Functions: createElection(title, candidates, duration), castVote(electionId, candidateId, voterAddress), getElectionResults(electionId). Support voting with Base testnet addresses.",
+      "priority": "medium",
+      "category": "governance",
+      "status": "completed",
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "DAO Governance",
+      "completedAt": "2025-07-21T11:44:37.175Z"
+    },
+    {
+      "id": "task-010",
+      "task": "Create ritual submission frontend form",
+      "filePath": "frontend/src/components/RitualSubmissionForm.tsx",
+      "requirements": "Create React component for ritual submission. Include: file upload (.grc), form fields (name, bioregion, description, cultural context), validation, progress indicator, success/error handling. Integrate with backend API.",
+      "priority": "high",
+      "category": "frontend",
+      "status": "completed",
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "User Interface",
+      "completedAt": "2025-07-21T11:44:20.059Z"
+    },
+    {
+      "id": "task-011",
+      "task": "Create ritual validation dashboard",
+      "filePath": "frontend/src/components/ValidationDashboard.tsx",
+      "requirements": "Create React dashboard showing ritual submissions, AI validation results (ESEP/CEDA scores), approval status, IPFS hashes, blockchain transactions. Include filtering, sorting, and detailed view capabilities.",
+      "priority": "medium",
+      "category": "frontend",
+      "status": "completed",
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "User Interface",
+      "completedAt": "2025-07-21T11:45:21.535Z"
+    },
+    {
+      "id": "task-012",
+      "task": "Set up 3 bioregion simulation data",
+      "filePath": "data/bioregions.json",
+      "requirements": "Create simulation data for 3 diverse bioregions: Pacific Northwest (indigenous practices), Amazon Basin (biodiversity focus), Sahel Region (desert regeneration). Include cultural context, traditional practices, and regeneration goals.",
+      "priority": "medium",
+      "category": "data",
+      "status": "completed",
+      "createdAt": "2025-07-21T12:45:00.000Z",
+      "milestone": "Bioregion Framework",
+      "completedAt": "2025-07-21T11:45:38.391Z"
     }
   ],
-  "lastUpdated": "2025-07-21T11:21:24.344Z"
+  "milestones": [
+    {
+      "name": "Ritual Submission System",
+      "description": "Complete .grc file processing and API endpoint",
+      "tasks": [
+        "task-001",
+        "task-007"
+      ],
+      "status": "pending"
+    },
+    {
+      "name": "AI Validation Engine",
+      "description": "Deploy ESEP and CEDA filters for cultural validation",
+      "tasks": [
+        "task-002",
+        "task-003"
+      ],
+      "status": "pending"
+    },
+    {
+      "name": "IPFS Storage System",
+      "description": "Set up decentralized storage for ritual metadata",
+      "tasks": [
+        "task-004"
+      ],
+      "status": "pending"
+    },
+    {
+      "name": "Blockchain Integration",
+      "description": "Deploy smart contracts on Base testnet",
+      "tasks": [
+        "task-005",
+        "task-006"
+      ],
+      "status": "pending"
+    },
+    {
+      "name": "Bioregion Framework",
+      "description": "Create bioregion management and simulation data",
+      "tasks": [
+        "task-008",
+        "task-012"
+      ],
+      "status": "pending"
+    },
+    {
+      "name": "DAO Governance",
+      "description": "Implement Cultural Heritage Council elections",
+      "tasks": [
+        "task-009"
+      ],
+      "status": "pending"
+    },
+    {
+      "name": "User Interface",
+      "description": "Build frontend components for ritual submission and validation",
+      "tasks": [
+        "task-010",
+        "task-011"
+      ],
+      "status": "pending"
+    }
+  ],
+  "lastUpdated": "2025-07-21T11:45:38.391Z"
 }

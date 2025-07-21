@@ -45,102 +45,111 @@ class TaskManager {
     }
   }
 
-  // Generate a comprehensive task list for the project
+  // Load existing task list or generate new one
   generateTaskList(): TaskList {
+    // First try to load existing task list
+    const existing = this.loadTaskList();
+    if (existing) {
+      this.log('📋 Loaded existing task list');
+      return existing;
+    }
+
+    // If no existing task list, create a new one
+    this.log('📋 Generating new task list for GRC platform development');
     const tasks: Task[] = [
       {
         id: 'task-001',
-        task: 'Create ritual metadata validation utilities',
-        filePath: 'scripts/ritualValidationUtils.ts',
+        task: 'Implement .grc file parser and validator',
+        filePath: 'backend/src/utils/grcParser.ts',
         requirements:
-          'Create TypeScript utility that validates ritual metadata with functions: validateRitualMetadata(metadata: any): boolean and getValidationErrors(metadata: any): string[]. Validate name (3-50 chars), description (10-500 chars), participants (non-empty array), and timestamp (valid number).',
+          'Create TypeScript utility to parse and validate .grc files. Support UTF-8 encoding, max 10MB size, required fields (ritual name, bioregion ID, description, cultural context). Return structured data with validation errors.',
         priority: 'high',
-        category: 'validation',
+        category: 'file-processing',
         status: 'pending',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'task-002',
-        task: 'Create ritual scheduler system',
-        filePath: 'scripts/ritualScheduler.ts',
+        task: 'Create ESEP (Ethical-Spiritual Evaluation Protocol) filter',
+        filePath: 'backend/src/ai/esepFilter.ts',
         requirements:
-          'Create a TypeScript scheduler that can schedule rituals with metadata, handle conflicts, and manage ritual timing. Include functions for scheduling, rescheduling, and canceling rituals.',
+          'Implement ESEP algorithm that evaluates ethical-spiritual balance (0.0-1.0 scale, max 0.7 threshold). Analyze ethical keywords (justice, compassion, respect), spiritual keywords (sacred, divine, harmony), and balance assessment. Return score and detailed feedback.',
         priority: 'high',
-        category: 'scheduling',
+        category: 'ai-validation',
         status: 'pending',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'task-003',
-        task: 'Create ritual logging system',
-        filePath: 'scripts/ritualLogger.ts',
+        task: 'Create CEDA (Cultural Expression Detection Algorithm) filter',
+        filePath: 'backend/src/ai/cedaFilter.ts',
         requirements:
-          'Create a TypeScript logging system that logs ritual activities, participants, outcomes, and metadata. Include functions for logging, querying logs, and exporting log data.',
-        priority: 'medium',
-        category: 'logging',
+          'Implement CEDA algorithm to detect cultural references and expressions. Count cultural keywords, traditional practices, indigenous terms, and cultural context. Minimum 2 cultural references required for approval. Return count and identified references.',
+        priority: 'high',
+        category: 'ai-validation',
         status: 'pending',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'task-004',
-        task: 'Create ritual notification system',
-        filePath: 'scripts/ritualNotifier.ts',
+        task: 'Set up IPFS integration for ritual metadata storage',
+        filePath: 'backend/src/services/ipfsService.ts',
         requirements:
-          'Create a TypeScript notification system that sends notifications to participants before, during, and after rituals. Include email, push, and in-app notification support.',
-        priority: 'medium',
-        category: 'notifications',
+          'Create IPFS service to store ritual metadata. Functions: uploadMetadata(metadata), getMetadata(hash), validateHash(hash). Use IPFS HTTP API, handle errors, return IPFS hashes for blockchain logging.',
+        priority: 'high',
+        category: 'storage',
         status: 'pending',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'task-005',
-        task: 'Create ritual analytics dashboard',
-        filePath: 'scripts/ritualAnalytics.ts',
+        task: 'Deploy GRC_RitualSubmission smart contract to Base testnet',
+        filePath: 'contracts/GRC_RitualSubmission.sol',
         requirements:
-          'Create a TypeScript analytics system that provides insights into ritual participation, success rates, and trends. Include data aggregation, visualization, and reporting functions.',
-        priority: 'low',
-        category: 'analytics',
+          'Create Solidity contract for ritual submission logging on Base testnet. Include: submitRitual(bioregionId, ipfsHash, esepScore, cedaScore), getRitual(ritualId), validateRitual(ritualId, isApproved). Deploy and verify on Base testnet.',
+        priority: 'high',
+        category: 'blockchain',
         status: 'pending',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'task-006',
-        task: 'Create ritual export/import utilities',
-        filePath: 'scripts/ritualDataManager.ts',
+        task: 'Deploy SymbiosisPledge smart contract to Base testnet',
+        filePath: 'contracts/SymbiosisPledge.sol',
         requirements:
-          'Create TypeScript utilities for exporting and importing ritual data in various formats (JSON, CSV, XML). Include data validation and transformation functions.',
-        priority: 'low',
-        category: 'data-management',
+          'Create Solidity contract for bioregional pledges on Base testnet. Include: createPledge(bioregionId, pledgeType, description, amount), fulfillPledge(pledgeId, proofHash), verifyPledge(pledgeId, isVerified). Support 10 pledge types.',
+        priority: 'high',
+        category: 'blockchain',
         status: 'pending',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'task-007',
-        task: 'Create ritual backup system',
-        filePath: 'scripts/ritualBackup.ts',
+        task: 'Create ritual submission API endpoint',
+        filePath: 'backend/src/routes/rituals.ts',
         requirements:
-          'Create a TypeScript backup system that automatically backs up ritual data to local storage and cloud services. Include backup scheduling, restoration, and verification functions.',
-        priority: 'medium',
-        category: 'backup',
+          'Implement POST /api/v1/rituals/submit endpoint. Handle multipart/form-data with .grc file, validate inputs, process through AI filters, store on IPFS, log to blockchain. Return ritualId, ipfsHash, transactionHash, and validation results.',
+        priority: 'high',
+        category: 'api',
         status: 'pending',
         createdAt: new Date().toISOString(),
       },
       {
         id: 'task-008',
-        task: 'Create ritual security utilities',
-        filePath: 'scripts/ritualSecurity.ts',
+        task: 'Create bioregion management system',
+        filePath: 'backend/src/services/bioregionService.ts',
         requirements:
-          'Create TypeScript security utilities for encrypting sensitive ritual data, managing access controls, and implementing audit trails. Include encryption, authentication, and authorization functions.',
+          'Create bioregion service with functions: registerBioregion(id, name, description), getBioregion(id), listBioregions(), getBioregionRituals(id). Support 3 initial bioregions for simulation.',
         priority: 'high',
-        category: 'security',
+        category: 'data-management',
         status: 'pending',
         createdAt: new Date().toISOString(),
       },
     ];
 
     const taskList: TaskList = {
-      project: 'Symbiotic Syntheconomy',
-      version: '1.0.0',
+      project: 'Symbiotic Syntheconomy - Global Regeneration Ceremony (GRC)',
+      version: '2.0.0',
       tasks: tasks,
       lastUpdated: new Date().toISOString(),
     };
