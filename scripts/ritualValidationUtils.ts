@@ -1,5 +1,8 @@
 // Utility functions for validating ritual metadata
 
+/**
+ * Interface defining the expected structure of ritual metadata
+ */
 interface RitualMetadata {
   name: string;
   description: string;
@@ -8,9 +11,9 @@ interface RitualMetadata {
 }
 
 /**
- * Validates ritual metadata against defined criteria
- * @param metadata - The metadata object to validate
- * @returns true if metadata is valid, false otherwise
+ * Validates ritual metadata against defined rules
+ * @param metadata The metadata object to validate
+ * @returns True if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
   const errors = getValidationErrors(metadata);
@@ -18,14 +21,14 @@ export function validateRitualMetadata(metadata: any): boolean {
 }
 
 /**
- * Returns an array of validation error messages for the given metadata
- * @param metadata - The metadata object to validate
+ * Gets validation errors for ritual metadata
+ * @param metadata The metadata object to validate
  * @returns Array of error messages, empty if valid
  */
 export function getValidationErrors(metadata: any): string[] {
   const errors: string[] = [];
 
-  // Check if metadata is an object
+  // Check if metadata is an object and not null
   if (!metadata || typeof metadata !== 'object') {
     errors.push('Metadata must be a non-null object');
     return errors;
