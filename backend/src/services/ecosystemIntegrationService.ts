@@ -3,11 +3,11 @@ import { OAuth2Client } from 'google-auth-library';
 import TwitterApi from 'twitter-api-v2';
 import { facebook } from 'facebook-sdk';
 
-// Types for ecosystem integration
-interface SocialMediaCredentials {
-  accessToken: string;
-  refreshToken?: string;
-  expiresIn?: number;
+// Types for platform credentials and configurations
+interface PlatformCredentials {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
 }
 
 interface UserProfile {
@@ -17,6 +17,7 @@ interface UserProfile {
   avatar?: string;
 }
 
+// Main Ecosystem Integration Service class
 class EcosystemIntegrationService {
   private googleClient: OAuth2Client;
   private twitterClient: TwitterApi;
@@ -25,9 +26,9 @@ class EcosystemIntegrationService {
   constructor() {
     // Initialize Google OAuth client
     this.googleClient = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
+      process.env.GOOGLE_CLIENT_ID || '',
+      process.env.GOOGLE_CLIENT_SECRET || '',
+      process.env.GOOGLE_REDIRECT_URI || ''
     );
 
     // Initialize Twitter client
@@ -35,129 +36,128 @@ class EcosystemIntegrationService {
       appKey: process.env.TWITTER_API_KEY || '',
       appSecret: process.env.TWITTER_API_SECRET || '',
       accessToken: process.env.TWITTER_ACCESS_TOKEN || '',
-      accessSecret: process.env.TWITTER_ACCESS_SECRET || '',
+      accessSecret: process.env.TWITTER_ACCESS_SECRET || ''
     });
 
-    // Initialize Facebook client
+    // Initialize Facebook SDK
     this.facebookClient = facebook({
-      appId: process.env.FACEBOOK_APP_ID,
-      appSecret: process.env.FACEBOOK_APP_SECRET,
+      appId: process.env.FACEBOOK_APP_ID || '',
+      appSecret: process.env.FACEBOOK_APP_SECRET || ''
     });
   }
 
   // Google Authentication
-  async authenticateWithGoogle(code: string): Promise<SocialMediaCredentials> {
+  async authenticateWithGoogle(code: string): Promise<UserProfile> {
     try {
       const { tokens } = await this.googleClient.getToken(code);
       this.googleClient.setCredentials(tokens);
+
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: tokens.id_token || '',
+        audience: process.env.GOOGLE_CLIENT_ID || ''
+      });
+
+      const payload = ticket.getPayload();
       return {
-        accessToken: tokens.access_token || '',
-        refreshToken: tokens.refresh_token,
-        expiresIn: tokens.expiry_date,
+        id: payload?.sub || '',
+        name: payload?.name || '',
+        email: payload?.email || '',
+        avatar: payload?.picture || ''
       };
     } catch (error) {
-      throw new Error(`Google authentication failed: ${error}`);
+      throw new Error(`Google authentication failed: ${error.message}`);
     }
   }
 
-  async getGoogleUserProfile(): Promise<UserProfile> {
+  // Twitter Authentication
+  async authenticateWithTwitter(): Promise<string> {
     try {
-      const response = await axios.get(
-        'https://www.googleapis.com/oauth2/v2/userinfo',
-        {
-          headers: {
-            Authorization: `Bearer ${this.googleClient.credentials.access_token}`,
-          },
-        }
+      const authUrl = await this.twitterClient.generateAuthLink(
+        process.env.TWITTER_REDIRECT_URI || ''
       );
+      return authUrl.url;
+    } catch (error) {
+      throw new Error(`Twitter authentication failed: ${error.message}`);
+    }
+  }
+
+  async getTwitterUserProfile(oauthToken: string, oauthVerifier: string): Promise<UserProfile> {
+    try {
+      const client = await this.twitterClient.login(oauthVerifier);
+      const userData = await client.v2.me({ 'user.fields': ['profile_image_url'] });
       return {
-        id: response.data.id,
-        name: response.data.name,
-        email: response.data.email,
-        avatar: response.data.picture,
+        id: userData.data.id,
+        name: userData.data.name,
+        avatar: userData.data.profile_image_url || ''
       };
     } catch (error) {
-      throw new Error(`Failed to fetch Google profile: ${error}`);
+      throw new Error(`Twitter profile fetch failed: ${error.message}`);
     }
   }
 
-  // Twitter Integration
-  async postTweet(content: string): Promise<any> {
+  // Facebook Authentication
+  async authenticateWithFacebook(code: string): Promise<UserProfile> {
     try {
-      const response = await this.twitterClient.v2.tweet(content);
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to post tweet: ${error}`);
-    }
-  }
-
-  async getTwitterUserProfile(): Promise<UserProfile> {
-    try {
-      const response = await this.twitterClient.v2.me({
-        'user.fields': ['id', 'name', 'profile_image_url'],
+      const tokenResponse = await this.facebookClient.getAccessToken(code, process.env.FACEBOOK_REDIRECT_URI || '');
+      const userData = await this.facebookClient.api('/me', {
+        fields: ['id', 'name', 'email', 'picture'],
+        access_token: tokenResponse.access_token
       });
+
       return {
-        id: response.data.id,
-        name: response.data.name,
-        avatar: response.data.profile_image_url,
+        id: userData.id,
+        name: userData.name,
+        email: userData.email || '',
+        avatar: userData.picture?.data?.url || ''
       };
     } catch (error) {
-      throw new Error(`Failed to fetch Twitter profile: ${error}`);
-    }
-  }
-
-  // Facebook Integration
-  async postToFacebook(content: string): Promise<any> {
-    try {
-      const response = await this.facebookClient.api('/me/feed', 'POST', {
-        message: content,
-      });
-      return response;
-    } catch (error) {
-      throw new Error(`Failed to post to Facebook: ${error}`);
-    }
-  }
-
-  async getFacebookUserProfile(): Promise<UserProfile> {
-    try {
-      const response = await this.facebookClient.api('/me', {
-        fields: 'id,name,email,picture',
-      });
-      return {
-        id: response.id,
-        name: response.name,
-        email: response.email,
-        avatar: response.picture?.data?.url,
-      };
-    } catch (error) {
-      throw new Error(`Failed to fetch Facebook profile: ${error}`);
+      throw new Error(`Facebook authentication failed: ${error.message}`);
     }
   }
 
   // Data Synchronization across platforms
-  async synchronizeUserData(userId: string, platformData: any): Promise<void> {
+  async syncUserData(userId: string, platform: string, data: any): Promise<void> {
     try {
-      // Implement data synchronization logic (e.g., store in database)
-      console.log(`Synchronizing data for user ${userId}`, platformData);
-      // Add logic to update user data across platforms or store in central DB
+      // Implement data synchronization logic (e.g., store in DB or broadcast to other platforms)
+      console.log(`Syncing data for user ${userId} on ${platform}`, data);
+      // Add logic to store data in your database or broadcast to connected platforms
     } catch (error) {
-      throw new Error(`Data synchronization failed: ${error}`);
+      throw new Error(`Data sync failed: ${error.message}`);
     }
   }
 
-  // Cross-platform content sharing
-  async shareContentAcrossPlatforms(content: string, platforms: string[]): Promise<any> {
-    const results: any = {};
+  // Cross-platform posting
+  async postToPlatform(platform: string, content: string, userCredentials: any): Promise<void> {
     try {
-      if (platforms.includes('twitter')) {
-        results.twitter = await this.postTweet(content);
+      switch (platform.toLowerCase()) {
+        case 'twitter':
+          await this.twitterClient.v2.tweet(content);
+          break;
+        case 'facebook':
+          await this.facebookClient.api('/me/feed', 'POST', {
+            message: content,
+            access_token: userCredentials.accessToken
+          });
+          break;
+        default:
+          throw new Error('Unsupported platform');
       }
-      if (platforms.includes('facebook')) {
-        results.facebook = await this.postToFacebook(content);
-      }
-      return results;
     } catch (error) {
-      throw new Error(`Cross-platform sharing failed: ${error}`);
+      throw new Error(`Posting to ${platform} failed: ${error.message}`);
+    }
+  }
+
+  // Generic API connector for other external services
+  async connectToExternalApi(endpoint: string, method: string = 'GET', data?: any): Promise<any> {
+    try {
+      const response = await axios({
+        method,
+        url: endpoint,
+        data
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`External API connection failed: ${error.message}`);
     }
   }
 }
