@@ -1,33 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
-import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, Upload } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { UploadIcon, CheckCircleIcon, AlertCircleIcon } from 'lucide-react';
 
 interface RitualFormData {
   name: string;
   bioregion: string;
   description: string;
   culturalContext: string;
-  file: FileList;
+  file: File | null;
 }
 
 const RitualSubmissionForm: React.FC = () => {
   const { register, handleSubmit, formState: { errors } } = useForm<RitualFormData>();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+
+  const onFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile && selectedFile.name.endsWith('.grc')) {
+      setFile(selectedFile);
+    } else {
+      setFile(null);
+      setErrorMessage('Please upload a valid .grc file');
+    }
+  }, []);
 
   const onSubmit = async (data: RitualFormData) => {
+    if (!file) {
+      setErrorMessage('Please upload a .grc file');
+      return;
+    }
+
     setIsSubmitting(true);
-    setSuccessMessage(null);
-    setErrorMessage(null);
     setUploadProgress(0);
+    setSubmitStatus('idle');
 
     try {
       const formData = new FormData();
@@ -35,139 +50,135 @@ const RitualSubmissionForm: React.FC = () => {
       formData.append('bioregion', data.bioregion);
       formData.append('description', data.description);
       formData.append('culturalContext', data.culturalContext);
-      if (data.file[0]) {
-        formData.append('file', data.file[0]);
-      }
+      formData.append('file', file);
 
-      await axios.post('/api/rituals', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setUploadProgress(percentCompleted);
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
           }
-        },
+          return prev + 10;
+        });
+      }, 300);
+
+      const response = await fetch('/api/rituals', {
+        method: 'POST',
+        body: formData,
       });
 
-      setSuccessMessage('Ritual submitted successfully!');
+      clearInterval(progressInterval);
       setUploadProgress(100);
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      setSubmitStatus('success');
+      setTimeout(() => {
+        setUploadProgress(0);
+        setIsSubmitting(false);
+        setFile(null);
+        // Reset form
+        document.getElementById('ritual-form')?.reset();
+      }, 2000);
     } catch (error) {
-      console.error('Error submitting ritual:', error);
-      setErrorMessage(error.response?.data?.error || 'Failed to submit ritual. Please try again.');
       setUploadProgress(0);
-    } finally {
       setIsSubmitting(false);
+      setSubmitStatus('error');
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to submit ritual');
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md"
-    >
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6 text-center">Submit a Ritual</h2>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Name Field */}
+      <form id="ritual-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="name">Ritual Name</Label>
           <Input
             id="name"
             placeholder="Enter ritual name"
-            {...register('name', { required: 'Ritual name is required' })}
+            {...register('name', { required: 'Ritual name is required', maxLength: { value: 100, message: 'Name too long' } })}
             className="w-full"
           />
           {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
         </div>
 
-        {/* Bioregion Field */}
         <div className="space-y-2">
           <Label htmlFor="bioregion">Bioregion</Label>
           <Input
             id="bioregion"
             placeholder="Enter bioregion"
-            {...register('bioregion', { required: 'Bioregion is required' })}
+            {...register('bioregion', { required: 'Bioregion is required', maxLength: { value: 100, message: 'Bioregion too long' } })}
             className="w-full"
           />
           {errors.bioregion && <p className="text-red-500 text-sm">{errors.bioregion.message}</p>}
         </div>
 
-        {/* Description Field */}
         <div className="space-y-2">
           <Label htmlFor="description">Description</Label>
           <Textarea
             id="description"
             placeholder="Describe the ritual"
-            {...register('description', { required: 'Description is required' })}
+            {...register('description', { required: 'Description is required', maxLength: { value: 1000, message: 'Description too long' } })}
             className="w-full h-24"
           />
           {errors.description && <p className="text-red-500 text-sm">{errors.description.message}</p>}
         </div>
 
-        {/* Cultural Context Field */}
         <div className="space-y-2">
           <Label htmlFor="culturalContext">Cultural Context</Label>
           <Textarea
             id="culturalContext"
             placeholder="Provide cultural context"
-            {...register('culturalContext', { required: 'Cultural context is required' })}
+            {...register('culturalContext', { required: 'Cultural context is required', maxLength: { value: 1000, message: 'Context too long' } })}
             className="w-full h-24"
           />
           {errors.culturalContext && <p className="text-red-500 text-sm">{errors.culturalContext.message}</p>}
         </div>
 
-        {/* File Upload */}
         <div className="space-y-2">
-          <Label htmlFor="file">Ritual File (.grc)</Label>
-          <div className="flex items-center space-x-2">
-            <Upload className="w-4 h-4 text-gray-500" />
-            <Input
-              id="file"
-              type="file"
-              accept=".grc"
-              {...register('file', { required: 'File upload is required' })}
-              className="w-full"
-            />
-          </div>
-          {errors.file && <p className="text-red-500 text-sm">{errors.file.message}</p>}
+          <Label htmlFor="file">Upload Ritual File (.grc)</Label>
+          <Input
+            id="file"
+            type="file"
+            accept=".grc"
+            onChange={onFileChange}
+            className="w-full"
+          />
+          {file && <p className="text-sm text-gray-500">Selected: {file.name}</p>}
         </div>
 
-        {/* Progress Indicator */}
         {isSubmitting && (
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
-            <div
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
-            />
+          <div className="space-y-2">
+            <Progress value={uploadProgress} className="w-full" />
+            <p className="text-sm text-gray-500 text-center">Uploading... {uploadProgress}%</p>
           </div>
         )}
 
-        {/* Success/Error Messages */}
-        {successMessage && (
-          <div className="text-green-600 bg-green-50 p-3 rounded-md text-sm">{successMessage}</div>
-        )}
-        {errorMessage && (
-          <div className="text-red-600 bg-red-50 p-3 rounded-md text-sm">{errorMessage}</div>
+        {submitStatus === 'success' && (
+          <Alert className="bg-green-50 border-green-200 text-green-700">
+            <CheckCircleIcon className="h-4 w-4" />
+            <AlertDescription>Ritual submitted successfully!</AlertDescription>
+          </Alert>
         )}
 
-        {/* Submit Button */}
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              Submitting...
-            </>
-          ) : (
-            'Submit Ritual'
-          )}
+        {submitStatus === 'error' && (
+          <Alert className="bg-red-50 border-red-200 text-red-700">
+            <AlertCircleIcon className="h-4 w-4" />
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        <Button type="submit" disabled={isSubmitting} className="w-full">
+          {isSubmitting ? 'Submitting...' : 'Submit Ritual'}
+          {!isSubmitting && <UploadIcon className="ml-2 h-4 w-4" />}
         </Button>
       </form>
-    </motion.div>
+    </div>
   );
 };
 
