@@ -38,6 +38,7 @@
     "start:system": "npx tsx scripts/startSystem.ts",
     "status": "npx tsx scripts/systemStatus.ts",
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
+    "ai:apply": "npx tsx scripts/autoApplyAIContribution.ts",
     "configure:ai-agents": "npx tsx scripts/configureAIAgents.ts",
     "fix:webhook": "npx tsx scripts/fixWebhook.ts",
     "test:jest": "jest",
