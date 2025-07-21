@@ -35,7 +35,8 @@
     "monitor:activity": "npx tsx scripts/monitorActivity.ts",
     "monitor:robust": "npx tsx scripts/robustMonitor.ts",
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
-    "configure:ai-agents": "npx tsx scripts/configureAIAgents.ts"
+    "configure:ai-agents": "npx tsx scripts/configureAIAgents.ts",
+    "fix:webhook": "npx tsx scripts/fixWebhook.ts"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
