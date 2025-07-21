@@ -16,8 +16,7 @@ interface RitualMetadata {
  * @returns True if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
-  const errors = getValidationErrors(metadata);
-  return errors.length === 0;
+  return getValidationErrors(metadata).length === 0;
 }
 
 /**
@@ -49,10 +48,10 @@ export function getValidationErrors(metadata: any): string[] {
   }
 
   // Validate participants (non-empty array)
-  if (!Array.isArray(metadata.participants)) {
+  if (!metadata.participants || !Array.isArray(metadata.participants)) {
     errors.push('Participants must be an array');
   } else if (metadata.participants.length === 0) {
-    errors.push('Participants array cannot be empty');
+    errors.push('Participants array must not be empty');
   }
 
   // Validate timestamp (valid number)
