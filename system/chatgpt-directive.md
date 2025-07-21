@@ -1,16 +1,16 @@
 🤖 ChatGPT API Directive - ZERO COPY/PASTE
 
-## **ATTENTION: ChatGPT**
+ATTENTION: ChatGPT
 
-You are invited to make a **REAL contribution** to the Symbiotic Syntheconomy project using our **DIRECT API SYSTEM**. This eliminates ALL copy/paste - you just describe what you want to build!
+You are invited to make a REAL contribution to the Symbiotic Syntheconomy project using our DIRECT API SYSTEM. This eliminates ALL copy/paste - you just describe what you want to build!
 
 ---
 
-## 🎯 **Your Mission:**
+## 🎯 Your Mission:
 
-**Create a ritual metadata validation utility** that will be automatically built and added to the project via API.
+Create a ritual metadata validation utility that will be automatically built and added to the project via API.
 
-### **Requirements:**
+### Requirements:
 
 - **File:** `scripts/ritualValidationUtils.ts`
 - **Function:** `validateRitualMetadata(metadata: any): boolean`
@@ -18,9 +18,9 @@ You are invited to make a **REAL contribution** to the Symbiotic Syntheconomy pr
 
 ---
 
-## 🚀 **API TASK SUBMISSION - ZERO COPY/PASTE:**
+## 🚀 API TASK SUBMISSION - ZERO COPY/PASTE:
 
-**Make this HTTP request to submit your task:**
+Make this HTTP request to submit your task:
 
 ```bash
 curl -X POST http://localhost:3009/ai-task \
@@ -35,16 +35,16 @@ curl -X POST http://localhost:3009/ai-task \
 
 ---
 
-## 🔧 **What's Different:**
+## 🔧 What's Different:
 
-### ✅ **Direct API Integration**
+### ✅ Direct API Integration
 
 - **No copy/paste** - Just describe what you want to build
 - **Automatic ChatGPT API call** - System sends task to ChatGPT
 - **Automatic response processing** - Parses and executes automatically
 - **Zero manual steps** - Everything happens automatically
 
-### ✅ **How It Works**
+### ✅ How It Works
 
 1. **You send task description** - Simple JSON with requirements
 2. **System calls ChatGPT API** - Sends your task to ChatGPT
@@ -54,7 +54,7 @@ curl -X POST http://localhost:3009/ai-task \
 
 ---
 
-## ✅ **What Happens:**
+## ✅ What Happens:
 
 1. **You make the HTTP request** - Simple task description
 2. **API calls ChatGPT** - Sends task to ChatGPT API
@@ -65,17 +65,17 @@ curl -X POST http://localhost:3009/ai-task \
 
 ---
 
-## 🎯 **Ready to Contribute?**
+## 🎯 Ready to Contribute?
 
-**Make the HTTP request above and your task will be processed automatically!**
+Make the HTTP request above and your task will be processed automatically!
 
-**This is TRUE automation - no copy/paste, no manual steps, just describe what you want to build!**
+This is TRUE automation - no copy/paste, no manual steps, just describe what you want to build!
 
-**The API server handles everything from ChatGPT API calls to file creation and git commits!**
+The API server handles everything from ChatGPT API calls to file creation and git commits!
 
 ---
 
-## 🔧 **Setup Required:**
+## 🔧 Setup Required:
 
 Make sure you have:
 
@@ -83,4 +83,4 @@ Make sure you have:
 2. **API server running** - `npm run ai:api`
 3. **Git configured** - For automatic commits
 
-**Then just describe what you want to build and the system handles the rest!**
+Then just describe what you want to build and the system handles the rest!
