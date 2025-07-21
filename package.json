@@ -36,10 +36,15 @@
     "monitor:robust": "npx tsx scripts/robustMonitor.ts",
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
     "configure:ai-agents": "npx tsx scripts/configureAIAgents.ts",
-    "fix:webhook": "npx tsx scripts/fixWebhook.ts"
+    "fix:webhook": "npx tsx scripts/fixWebhook.ts",
+    "test:jest": "jest",
+    "jest": "jest"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "concurrently": "^8.2.2",
+    "jest": "^30.0.4",
+    "ts-jest": "^29.4.0",
     "typescript": "^5.3.3"
   },
   "engines": {
