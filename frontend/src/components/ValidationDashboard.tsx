@@ -1,53 +1,54 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { SearchIcon, FilterIcon, ArrowUpDown } from 'lucide-react';
+import { SearchIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // Types for ritual submission data
 interface RitualSubmission {
   id: string;
   title: string;
+  submitter: string;
   esepScore: number;
   cedaScore: number;
-  approvalStatus: 'pending' | 'approved' | 'rejected';
+  approvalStatus: 'Pending' | 'Approved' | 'Rejected';
   ipfsHash: string;
-  txHash: string | null;
-  submittedAt: string;
+  txHash: string;
+  timestamp: number;
 }
 
 // Mock data - replace with actual API calls
 const mockSubmissions: RitualSubmission[] = [
   {
     id: '1',
-    title: 'Morning Meditation',
-    esepScore: 0.85,
-    cedaScore: 0.92,
-    approvalStatus: 'approved',
-    ipfsHash: 'QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco',
-    txHash: '0x123...abc',
-    submittedAt: '2023-11-01T10:30:00Z',
+    title: 'Healing Circle',
+    submitter: '0x123...456',
+    esepScore: 85,
+    cedaScore: 78,
+    approvalStatus: 'Approved',
+    ipfsHash: 'QmX...abc',
+    txHash: '0x789...def',
+    timestamp: Date.now() - 3600000,
   },
   {
     id: '2',
-    title: 'Evening Reflection',
-    esepScore: 0.78,
-    cedaScore: 0.65,
-    approvalStatus: 'pending',
-    ipfsHash: 'QmYaxYGoW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco',
-    txHash: null,
-    submittedAt: '2023-11-02T18:45:00Z',
+    title: 'Energy Transfer',
+    submitter: '0x456...789',
+    esepScore: 65,
+    cedaScore: 72,
+    approvalStatus: 'Pending',
+    ipfsHash: 'QmY...def',
+    txHash: 'Pending',
+    timestamp: Date.now() - 7200000,
   },
-  // Add more mock data as needed
 ];
 
 const ValidationDashboard: React.FC = () => {
   const [submissions, setSubmissions] = useState<RitualSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [sortConfig, setSortConfig] = useState<{ key: keyof RitualSubmission; direction: 'asc' | 'desc' | null }>({
-    key: 'submittedAt',
+    key: 'timestamp',
     direction: 'desc',
   });
   const [selectedSubmission, setSelectedSubmission] = useState<RitualSubmission | null>(null);
@@ -73,14 +74,11 @@ const ValidationDashboard: React.FC = () => {
   const filteredSubmissions = useMemo(() => {
     let result = [...submissions];
     if (searchTerm) {
-      result = result.filter((s) =>
-        s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.ipfsHash.includes(searchTerm) ||
-        s.txHash?.includes(searchTerm)
+      result = result.filter(
+        (s) =>
+          s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          s.submitter.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    }
-    if (statusFilter !== 'all') {
-      result = result.filter((s) => s.approvalStatus === statusFilter);
     }
     if (sortConfig.direction) {
       result.sort((a, b) => {
@@ -91,58 +89,37 @@ const ValidationDashboard: React.FC = () => {
       });
     }
     return result;
-  }, [submissions, searchTerm, statusFilter, sortConfig]);
+  }, [submissions, searchTerm, sortConfig]);
 
   if (loading) {
-    return <div className="p-6 text-center">Loading submissions...</div>;
+    return (
+      <div className="flex justify-center items-center h-64">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          className="w-12 h-12 border-4 border-t-blue-500 border-gray-200 rounded-full"
+        />
+      </div>
+    );
   }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Ritual Validation Dashboard</h1>
 
-      {/* Filters and Search */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      {/* Search Bar */}
+      <div className="mb-6 flex items-center gap-4">
         <div className="relative flex-1">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Search by title, IPFS, or TX hash..."
+            placeholder="Search by title or submitter..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 w-full rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="pl-10 w-full p-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setStatusFilter('all')}
-            className={statusFilter === 'all' ? 'bg-blue-100' : ''}
-          >
-            All
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setStatusFilter('pending')}
-            className={statusFilter === 'pending' ? 'bg-blue-100' : ''}
-          >
-            Pending
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setStatusFilter('approved')}
-            className={statusFilter === 'approved' ? 'bg-blue-100' : ''}
-          >
-            Approved
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setStatusFilter('rejected')}
-            className={statusFilter === 'rejected' ? 'bg-blue-100' : ''}
-          >
-            Rejected
-          </Button>
-        </div>
+        <Button variant="outline">Filter by Status</Button>
       </div>
 
       {/* Submissions Table */}
@@ -151,62 +128,46 @@ const ValidationDashboard: React.FC = () => {
           <TableHeader>
             <TableRow>
               <TableHead onClick={() => handleSort('title')} className="cursor-pointer">
-                Title <ArrowUpDown size={16} className="inline ml-1" />
+                Title {sortConfig.key === 'title' && (sortConfig.direction === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
+              </TableHead>
+              <TableHead onClick={() => handleSort('submitter')} className="cursor-pointer">
+                Submitter {sortConfig.key === 'submitter' && (sortConfig.direction === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
               </TableHead>
               <TableHead onClick={() => handleSort('esepScore')} className="cursor-pointer">
-                ESEP Score <ArrowUpDown size={16} className="inline ml-1" />
+                ESEP Score {sortConfig.key === 'esepScore' && (sortConfig.direction === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
               </TableHead>
               <TableHead onClick={() => handleSort('cedaScore')} className="cursor-pointer">
-                CEDA Score <ArrowUpDown size={16} className="inline ml-1" />
+                CEDA Score {sortConfig.key === 'cedaScore' && (sortConfig.direction === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
               </TableHead>
               <TableHead onClick={() => handleSort('approvalStatus')} className="cursor-pointer">
-                Status <ArrowUpDown size={16} className="inline ml-1" />
+                Status {sortConfig.key === 'approvalStatus' && (sortConfig.direction === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
               </TableHead>
-              <TableHead>IPFS Hash</TableHead>
-              <TableHead>TX Hash</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredSubmissions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center">
+                <TableCell colSpan={6} className="text-center text-gray-500">
                   No submissions found
                 </TableCell>
               </TableRow>
             ) : (
               filteredSubmissions.map((submission) => (
-                <TableRow key={submission.id}>
+                <TableRow key={submission.id} className="cursor-pointer hover:bg-gray-50" onClick={() => setSelectedSubmission(submission)}>
                   <TableCell>{submission.title}</TableCell>
-                  <TableCell>{submission.esepScore.toFixed(2)}</TableCell>
-                  <TableCell>{submission.cedaScore.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        submission.approvalStatus === 'approved'
-                          ? 'bg-green-100 text-green-800'
-                          : submission.approvalStatus === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {submission.approvalStatus}
-                    </span>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm truncate max-w-[150px]" title={submission.ipfsHash}>
-                    {submission.ipfsHash.slice(0, 10)}...
-                  </TableCell>
-                  <TableCell className="font-mono text-sm truncate max-w-[150px]" title={submission.txHash || 'N/A'}>
-                    {submission.txHash ? `${submission.txHash.slice(0, 6)}...` : 'N/A'}
+                  <TableCell>{submission.submitter.slice(0, 8)}...</TableCell>
+                  <TableCell>{submission.esepScore}</TableCell>
+                  <TableCell>{submission.cedaScore}</TableCell>
+                  <TableCell
+                    className={`font-medium ${
+                      submission.approvalStatus === 'Approved' ? 'text-green-600' : submission.approvalStatus === 'Rejected' ? 'text-red-600' : 'text-yellow-600'
+                    }`}
+                  >
+                    {submission.approvalStatus}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedSubmission(submission)}
-                    >
-                      Details
-                    </Button>
+                    <Button variant="outline" size="sm">Details</Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -215,7 +176,7 @@ const ValidationDashboard: React.FC = () => {
         </Table>
       </div>
 
-      {/* Details Modal */}
+      {/* Detailed View Modal */}
       {selectedSubmission && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -223,43 +184,21 @@ const ValidationDashboard: React.FC = () => {
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
           onClick={() => setSelectedSubmission(null)}
         >
-          <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            className="bg-white rounded-lg p-6 w-full max-w-lg"
+          <div
+            className="bg-white p-6 rounded-lg max-w-lg w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold mb-4">{selectedSubmission.title}</h2>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-gray-500">ESEP Score</p>
-                <p>{selectedSubmission.esepScore.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">CEDA Score</p>
-                <p>{selectedSubmission.cedaScore.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <p className="capitalize">{selectedSubmission.approvalStatus}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Submitted</p>
-                <p>{new Date(selectedSubmission.submittedAt).toLocaleString()}</p>
-              </div>
+            <div className="space-y-2">
+              <p><strong>Submitter:</strong> {selectedSubmission.submitter}</p>
+              <p><strong>ESEP Score:</strong> {selectedSubmission.esepScore}</p>
+              <p><strong>CEDA Score:</strong> {selectedSubmission.cedaScore}</p>
+              <p><strong>Status:</strong> {selectedSubmission.approvalStatus}</p>
+              <p><strong>IPFS Hash:</strong> <a href={`https://ipfs.io/ipfs/${selectedSubmission.ipfsHash}`} target="_blank" className="text-blue-500 hover:underline">{selectedSubmission.ipfsHash.slice(0, 8)}...</a></p>
+              <p><strong>Transaction:</strong> {selectedSubmission.txHash === 'Pending' ? 'Pending' : <a href={`https://etherscan.io/tx/${selectedSubmission.txHash}`} target="_blank" className="text-blue-500 hover:underline">{selectedSubmission.txHash.slice(0, 8)}...</a>}</p>
             </div>
-            <div className="mb-4">
-              <p className="text-sm text-gray-500 mb-1">IPFS Hash</p>
-              <p className="font-mono text-sm break-all">{selectedSubmission.ipfsHash}</p>
-            </div>
-            <div className="mb-4">
-              <p className="text-sm text-gray-500 mb-1">Transaction Hash</p>
-              <p className="font-mono text-sm break-all">{selectedSubmission.txHash || 'Not available'}</p>
-            </div>
-            <Button onClick={() => setSelectedSubmission(null)} className="w-full mt-4">
-              Close
-            </Button>
-          </motion.div>
+            <Button className="mt-4" onClick={() => setSelectedSubmission(null)}>Close</Button>
+          </div>
         </motion.div>
       )}
     </div>
