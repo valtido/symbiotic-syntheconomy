@@ -2,6 +2,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import readline from 'readline';
 
 interface SystemHealth {
   backend: boolean;
@@ -22,6 +23,18 @@ interface TaskStats {
 }
 
 class SystemStatus {
+  private rl: readline.Interface;
+  private isRunning = true;
+  private currentView = 'main';
+  private updateInterval = 3000; // 3 seconds
+
+  constructor() {
+    this.rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+  }
+
   private log(message: string) {
     console.log(`📊 ${message}`);
   }
@@ -178,12 +191,10 @@ class SystemStatus {
   }
 
   private getStatusText(healthy: boolean): string {
-    return healthy ? 'HEALTHY' : 'UNHEALTHY';
+    return healthy ? 'OK' : 'DOWN';
   }
 
   async performHealthCheck(): Promise<SystemHealth> {
-    this.log('Performing real-time health checks...');
-
     const [
       backendHealth,
       tunnelHealth,
@@ -209,6 +220,386 @@ class SystemStatus {
       taskManager: taskManagerHealth,
       lastCheck: new Date(),
     };
+  }
+
+  private clearScreen(): void {
+    console.clear();
+  }
+
+  private displayMainView(health: SystemHealth, taskStats: TaskStats): void {
+    this.clearScreen();
+    console.log('🤖 Interactive System Monitor');
+    console.log(
+      '═══════════════════════════════════════════════════════════════\n',
+    );
+
+    console.log('📊 System Health:');
+    console.log(
+      `  Backend:           ${this.getStatusIcon(
+        health.backend,
+      )} ${this.getStatusText(health.backend)}`,
+    );
+    console.log(
+      `  LocalTunnel:       ${this.getStatusIcon(
+        health.localtunnel,
+      )} ${this.getStatusText(health.localtunnel)}`,
+    );
+    console.log(
+      `  Webhook:           ${this.getStatusIcon(
+        health.webhook,
+      )} ${this.getStatusText(health.webhook)}`,
+    );
+    console.log(
+      `  AI API Server:     ${this.getStatusIcon(
+        health.aiApiServer,
+      )} ${this.getStatusText(health.aiApiServer)}`,
+    );
+    console.log(
+      `  AI Webhook Server: ${this.getStatusIcon(
+        health.aiWebhookServer,
+      )} ${this.getStatusText(health.aiWebhookServer)}`,
+    );
+    console.log(
+      `  Task Manager:      ${this.getStatusIcon(
+        health.taskManager,
+      )} ${this.getStatusText(health.taskManager)}`,
+    );
+
+    console.log('\n📋 Task Stats:');
+    console.log(
+      `  Total: ${taskStats.total} | Completed: ${taskStats.completed} 🟢 | Pending: ${taskStats.pending} 🟡 | Failed: ${taskStats.failed} 🔴`,
+    );
+
+    console.log('\n⏱️  Last Check:', health.lastCheck.toLocaleTimeString());
+    console.log(
+      '\n═══════════════════════════════════════════════════════════════',
+    );
+    this.displayNavigation();
+  }
+
+  private displayTasksView(): void {
+    try {
+      const taskFile = path.join(process.cwd(), 'tasks', 'task-list.json');
+      if (!fs.existsSync(taskFile)) {
+        console.log('\n📋 No task list found.');
+        return;
+      }
+
+      const content = fs.readFileSync(taskFile, 'utf-8');
+      const taskList = JSON.parse(content);
+
+      this.clearScreen();
+      console.log('📋 Task Details');
+      console.log(
+        '═══════════════════════════════════════════════════════════════\n',
+      );
+
+      const highPriority = taskList.tasks.filter(
+        (t: any) => t.priority === 'high',
+      );
+      const mediumPriority = taskList.tasks.filter(
+        (t: any) => t.priority === 'medium',
+      );
+      const lowPriority = taskList.tasks.filter(
+        (t: any) => t.priority === 'low',
+      );
+
+      if (highPriority.length > 0) {
+        console.log('🔴 High Priority:');
+        highPriority.forEach((task: any) => {
+          const statusIcon = {
+            'pending': '⏳',
+            'in-progress': '🔄',
+            'completed': '✅',
+            'failed': '❌',
+          }[task.status];
+          console.log(`  ${statusIcon} ${task.task}`);
+        });
+        console.log('');
+      }
+
+      if (mediumPriority.length > 0) {
+        console.log('🟡 Medium Priority:');
+        mediumPriority.forEach((task: any) => {
+          const statusIcon = {
+            'pending': '⏳',
+            'in-progress': '🔄',
+            'completed': '✅',
+            'failed': '❌',
+          }[task.status];
+          console.log(`  ${statusIcon} ${task.task}`);
+        });
+        console.log('');
+      }
+
+      if (lowPriority.length > 0) {
+        console.log('🟢 Low Priority:');
+        lowPriority.forEach((task: any) => {
+          const statusIcon = {
+            'pending': '⏳',
+            'in-progress': '🔄',
+            'completed': '✅',
+            'failed': '❌',
+          }[task.status];
+          console.log(`  ${statusIcon} ${task.task}`);
+        });
+      }
+
+      console.log(
+        '\n═══════════════════════════════════════════════════════════════',
+      );
+      this.displayNavigation();
+    } catch (error) {
+      console.log(`\n❌ Error loading tasks: ${error}`);
+    }
+  }
+
+  private displayLogsView(): void {
+    try {
+      const logFiles = [
+        { name: 'AI-API', path: 'log/ai-api.log' },
+        { name: 'AI-WEBHOOK', path: 'log/ai-webhook.log' },
+        { name: 'TASK-MANAGER', path: 'log/task-manager.log' },
+      ];
+
+      this.clearScreen();
+      console.log('📝 Recent Activity');
+      console.log(
+        '═══════════════════════════════════════════════════════════════\n',
+      );
+
+      for (const logFile of logFiles) {
+        const fullPath = path.join(process.cwd(), logFile.path);
+        if (fs.existsSync(fullPath)) {
+          const content = fs.readFileSync(fullPath, 'utf-8');
+          const lines = content.split('\n').filter((line) => line.trim());
+          const recentLines = lines.slice(-3); // Last 3 lines
+
+          if (recentLines.length > 0) {
+            console.log(`📄 ${logFile.name}:`);
+            recentLines.forEach((line) => {
+              if (line.trim()) {
+                const timestamp = line.match(/\[([^\]]+)\]/)?.[1] || '';
+                const message = line.replace(/^\[[^\]]+\]\s*/, '').trim();
+                console.log(
+                  `  ${timestamp ? `[${timestamp}]` : ''} ${message}`,
+                );
+              }
+            });
+            console.log('');
+          }
+        }
+      }
+
+      console.log(
+        '═══════════════════════════════════════════════════════════════',
+      );
+      this.displayNavigation();
+    } catch (error) {
+      console.log(`\n❌ Error loading logs: ${error}`);
+    }
+  }
+
+  private displayCommandsView(): void {
+    this.clearScreen();
+    console.log('🚀 Quick Commands');
+    console.log(
+      '═══════════════════════════════════════════════════════════════\n',
+    );
+
+    console.log('🤖 AI & Tasks:');
+    console.log('  c - Preload ChatGPT directive');
+    console.log('  n - Send next task to ChatGPT');
+    console.log('  a - Process all tasks');
+    console.log('  g - Generate new task list');
+    console.log('  p - Process pending tasks');
+
+    console.log('\n🔧 System:');
+    console.log('  s - Start AI API server');
+    console.log('  w - Start AI webhook server');
+    console.log('  m - Start system monitor');
+
+    console.log('\n📊 Views:');
+    console.log('  1 - Main dashboard (current)');
+    console.log('  2 - Task details');
+    console.log('  3 - Recent logs');
+    console.log('  4 - Quick commands (this view)');
+
+    console.log('\n⚡ Actions:');
+    console.log('  q - Quit monitor');
+    console.log('  r - Refresh current view');
+
+    console.log(
+      '\n═══════════════════════════════════════════════════════════════',
+    );
+  }
+
+  private displayNavigation(): void {
+    console.log(
+      'Navigation: 1-Main | 2-Tasks | 3-Logs | 4-Commands | q-Quit | r-Refresh',
+    );
+  }
+
+  private async handleKeyPress(key: string): Promise<void> {
+    switch (key.toLowerCase()) {
+      case '1':
+        this.currentView = 'main';
+        break;
+      case '2':
+        this.currentView = 'tasks';
+        break;
+      case '3':
+        this.currentView = 'logs';
+        break;
+      case '4':
+        this.currentView = 'commands';
+        break;
+      case 'q':
+        this.isRunning = false;
+        this.rl.close();
+        console.log('\n🛑 Interactive monitor stopped');
+        process.exit(0);
+        break;
+      case 'r':
+        // Refresh current view
+        break;
+      case 'c':
+        console.log('\n🚀 Running: npm run chatgpt:preload');
+        // Could execute command here
+        break;
+      case 'n':
+        console.log('\n🚀 Running: npm run chatgpt:next');
+        // Could execute command here
+        break;
+      case 'a':
+        console.log('\n🚀 Running: npm run chatgpt:all');
+        // Could execute command here
+        break;
+      case 'g':
+        console.log('\n🚀 Running: npm run tasks:generate');
+        // Could execute command here
+        break;
+      case 'p':
+        console.log('\n🚀 Running: npm run tasks:process');
+        // Could execute command here
+        break;
+      case 's':
+        console.log('\n🚀 Running: npm run ai:api');
+        // Could execute command here
+        break;
+      case 'w':
+        console.log('\n🚀 Running: npm run ai:webhook');
+        // Could execute command here
+        break;
+      case 'm':
+        console.log('\n🚀 Running: npm run monitor');
+        // Could execute command here
+        break;
+    }
+  }
+
+  private setupKeyHandling(): void {
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
+
+    process.stdin.on('data', async (key) => {
+      const keyStr = key.toString();
+      if (keyStr === '\u0003') {
+        // Ctrl+C
+        this.isRunning = false;
+        this.rl.close();
+        console.log('\n🛑 Interactive monitor stopped');
+        process.exit(0);
+      }
+      await this.handleKeyPress(keyStr);
+    });
+  }
+
+  async startInteractive(): Promise<void> {
+    console.log('🤖 Starting Interactive System Monitor...');
+    console.log('Press any key to navigate, Ctrl+C to quit\n');
+
+    this.setupKeyHandling();
+
+    const updateDisplay = async () => {
+      if (!this.isRunning) return;
+
+      try {
+        const health = await this.performHealthCheck();
+        const taskStats = await this.getTaskStats();
+
+        switch (this.currentView) {
+          case 'main':
+            this.displayMainView(health, taskStats);
+            break;
+          case 'tasks':
+            this.displayTasksView();
+            break;
+          case 'logs':
+            this.displayLogsView();
+            break;
+          case 'commands':
+            this.displayCommandsView();
+            break;
+        }
+      } catch (error) {
+        console.log(`❌ Error updating display: ${error}`);
+      }
+
+      // Schedule next update
+      setTimeout(updateDisplay, this.updateInterval);
+    };
+
+    // Start the update loop
+    updateDisplay();
+  }
+
+  async start(): Promise<void> {
+    const command = process.argv[2];
+
+    if (command === 'watch' || command === 'live') {
+      await this.startContinuousMonitoring();
+    } else if (command === 'interactive' || command === 'i') {
+      await this.startInteractive();
+    } else {
+      await this.displayStatus();
+      await this.displayQuickActions();
+    }
+  }
+
+  async startContinuousMonitoring(): Promise<void> {
+    console.log('🔄 Starting continuous system monitoring...');
+    console.log('Press Ctrl+C to stop\n');
+
+    const updateInterval = 5000; // 5 seconds
+
+    const updateStatus = async () => {
+      // Clear screen (works on most terminals)
+      console.clear();
+
+      await this.displayStatus();
+      await this.displayQuickActions();
+
+      console.log(
+        `\n🔄 Next update in ${
+          updateInterval / 1000
+        } seconds... (Press Ctrl+C to stop)`,
+      );
+    };
+
+    // Initial display
+    await updateStatus();
+
+    // Set up continuous updates
+    const intervalId = setInterval(updateStatus, updateInterval);
+
+    // Graceful shutdown
+    process.on('SIGINT', () => {
+      clearInterval(intervalId);
+      console.log('\n🛑 Continuous monitoring stopped');
+      process.exit(0);
+    });
   }
 
   async displayStatus(): Promise<void> {
@@ -429,51 +820,6 @@ class SystemStatus {
     console.log(
       '\n═══════════════════════════════════════════════════════════════',
     );
-  }
-
-  async start(): Promise<void> {
-    const command = process.argv[2];
-
-    if (command === 'watch' || command === 'live') {
-      await this.startContinuousMonitoring();
-    } else {
-      await this.displayStatus();
-      await this.displayQuickActions();
-    }
-  }
-
-  async startContinuousMonitoring(): Promise<void> {
-    console.log('🔄 Starting continuous system monitoring...');
-    console.log('Press Ctrl+C to stop\n');
-
-    const updateInterval = 5000; // 5 seconds
-
-    const updateStatus = async () => {
-      // Clear screen (works on most terminals)
-      console.clear();
-
-      await this.displayStatus();
-      await this.displayQuickActions();
-
-      console.log(
-        `\n🔄 Next update in ${
-          updateInterval / 1000
-        } seconds... (Press Ctrl+C to stop)`,
-      );
-    };
-
-    // Initial display
-    await updateStatus();
-
-    // Set up continuous updates
-    const intervalId = setInterval(updateStatus, updateInterval);
-
-    // Graceful shutdown
-    process.on('SIGINT', () => {
-      clearInterval(intervalId);
-      console.log('\n🛑 Continuous monitoring stopped');
-      process.exit(0);
-    });
   }
 }
 
