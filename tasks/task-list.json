@@ -1,0 +1,87 @@
+{
+  "project": "Symbiotic Syntheconomy",
+  "version": "1.0.0",
+  "tasks": [
+    {
+      "id": "task-001",
+      "task": "Create ritual metadata validation utilities",
+      "filePath": "scripts/ritualValidationUtils.ts",
+      "requirements": "Create TypeScript utility that validates ritual metadata with functions: validateRitualMetadata(metadata: any): boolean and getValidationErrors(metadata: any): string[]. Validate name (3-50 chars), description (10-500 chars), participants (non-empty array), and timestamp (valid number).",
+      "priority": "high",
+      "category": "validation",
+      "status": "pending",
+      "createdAt": "2025-07-21T03:03:32.792Z"
+    },
+    {
+      "id": "task-002",
+      "task": "Create ritual scheduler system",
+      "filePath": "scripts/ritualScheduler.ts",
+      "requirements": "Create a TypeScript scheduler that can schedule rituals with metadata, handle conflicts, and manage ritual timing. Include functions for scheduling, rescheduling, and canceling rituals.",
+      "priority": "high",
+      "category": "scheduling",
+      "status": "pending",
+      "createdAt": "2025-07-21T03:03:32.792Z"
+    },
+    {
+      "id": "task-003",
+      "task": "Create ritual logging system",
+      "filePath": "scripts/ritualLogger.ts",
+      "requirements": "Create a TypeScript logging system that logs ritual activities, participants, outcomes, and metadata. Include functions for logging, querying logs, and exporting log data.",
+      "priority": "medium",
+      "category": "logging",
+      "status": "pending",
+      "createdAt": "2025-07-21T03:03:32.792Z"
+    },
+    {
+      "id": "task-004",
+      "task": "Create ritual notification system",
+      "filePath": "scripts/ritualNotifier.ts",
+      "requirements": "Create a TypeScript notification system that sends notifications to participants before, during, and after rituals. Include email, push, and in-app notification support.",
+      "priority": "medium",
+      "category": "notifications",
+      "status": "pending",
+      "createdAt": "2025-07-21T03:03:32.792Z"
+    },
+    {
+      "id": "task-005",
+      "task": "Create ritual analytics dashboard",
+      "filePath": "scripts/ritualAnalytics.ts",
+      "requirements": "Create a TypeScript analytics system that provides insights into ritual participation, success rates, and trends. Include data aggregation, visualization, and reporting functions.",
+      "priority": "low",
+      "category": "analytics",
+      "status": "pending",
+      "createdAt": "2025-07-21T03:03:32.792Z"
+    },
+    {
+      "id": "task-006",
+      "task": "Create ritual export/import utilities",
+      "filePath": "scripts/ritualDataManager.ts",
+      "requirements": "Create TypeScript utilities for exporting and importing ritual data in various formats (JSON, CSV, XML). Include data validation and transformation functions.",
+      "priority": "low",
+      "category": "data-management",
+      "status": "pending",
+      "createdAt": "2025-07-21T03:03:32.792Z"
+    },
+    {
+      "id": "task-007",
+      "task": "Create ritual backup system",
+      "filePath": "scripts/ritualBackup.ts",
+      "requirements": "Create a TypeScript backup system that automatically backs up ritual data to local storage and cloud services. Include backup scheduling, restoration, and verification functions.",
+      "priority": "medium",
+      "category": "backup",
+      "status": "pending",
+      "createdAt": "2025-07-21T03:03:32.792Z"
+    },
+    {
+      "id": "task-008",
+      "task": "Create ritual security utilities",
+      "filePath": "scripts/ritualSecurity.ts",
+      "requirements": "Create TypeScript security utilities for encrypting sensitive ritual data, managing access controls, and implementing audit trails. Include encryption, authentication, and authorization functions.",
+      "priority": "high",
+      "category": "security",
+      "status": "pending",
+      "createdAt": "2025-07-21T03:03:32.792Z"
+    }
+  ],
+  "lastUpdated": "2025-07-21T03:03:32.792Z"
+}
