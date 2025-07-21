@@ -1,4 +1,4 @@
-// Bioregion Service for managing bioregion data
+// Bioregion Service for Symbiotic Syntheconomy
 
 // Types for bioregion data structure
 export interface Bioregion {
@@ -12,31 +12,36 @@ export interface Bioregion {
 const bioregions: Map<string, Bioregion> = new Map();
 
 // Initialize with 3 default bioregions for simulation
-bioregions.set('bio1', {
-  id: 'bio1',
-  name: 'Northern Forest',
-  description: 'A vast temperate forest with rich biodiversity and seasonal cycles.',
-  rituals: ['Spring Renewal', 'Harvest Moon Ceremony']
-});
+function initializeBioregions() {
+  bioregions.set('bio1', {
+    id: 'bio1',
+    name: 'Emerald Canopy',
+    description: 'A lush forest bioregion with ancient trees and diverse wildlife.',
+    rituals: ['Tree Whispering', 'Rain Dance']
+  });
 
-bioregions.set('bio2', {
-  id: 'bio2',
-  name: 'Coastal Wetlands',
-  description: 'A dynamic ecosystem of marshes and estuaries supporting migratory birds.',
-  rituals: ['Tide Cleansing', 'Bird Migration Welcome']
-});
+  bioregions.set('bio2', {
+    id: 'bio2',
+    name: 'Crimson Desert',
+    description: 'A vast desert with extreme temperatures and unique desert flora.',
+    rituals: ['Sand Meditation', 'Mirage Walking']
+  });
 
-bioregions.set('bio3', {
-  id: 'bio3',
-  name: 'Mountain Highlands',
-  description: 'Rugged peaks with unique alpine flora and ancient cultural significance.',
-  rituals: ['Summit Offering', 'Winter Solstice Fire']
-});
+  bioregions.set('bio3', {
+    id: 'bio3',
+    name: 'Azure Coast',
+    description: 'A coastal region with vibrant marine life and tidal ecosystems.',
+    rituals: ['Wave Chanting', 'Coral Bonding']
+  });
+}
 
-// Service class for bioregion operations
+// Initialize bioregions on module load
+initializeBioregions();
+
+// Service functions
 export class BioregionService {
   /**
-   * Registers a new bioregion
+   * Register a new bioregion
    * @param id Unique identifier for the bioregion
    * @param name Name of the bioregion
    * @param description Description of the bioregion
@@ -46,48 +51,43 @@ export class BioregionService {
     if (bioregions.has(id)) {
       throw new Error(`Bioregion with ID ${id} already exists`);
     }
-    const bioregion: Bioregion = {
+
+    const newBioregion: Bioregion = {
       id,
       name,
       description,
       rituals: []
     };
-    bioregions.set(id, bioregion);
-    return bioregion;
+
+    bioregions.set(id, newBioregion);
+    return newBioregion;
   }
 
   /**
-   * Retrieves a bioregion by ID
+   * Get a bioregion by ID
    * @param id Unique identifier for the bioregion
-   * @returns The bioregion if found, otherwise throws an error
+   * @returns The bioregion if found, otherwise null
    */
-  static getBioregion(id: string): Bioregion {
-    const bioregion = bioregions.get(id);
-    if (!bioregion) {
-      throw new Error(`Bioregion with ID ${id} not found`);
-    }
-    return bioregion;
+  static getBioregion(id: string): Bioregion | null {
+    return bioregions.get(id) || null;
   }
 
   /**
-   * Lists all registered bioregions
-   * @returns Array of all bioregions
+   * List all bioregions
+   * @returns Array of all registered bioregions
    */
   static listBioregions(): Bioregion[] {
     return Array.from(bioregions.values());
   }
 
   /**
-   * Retrieves rituals associated with a bioregion
+   * Get rituals associated with a bioregion
    * @param id Unique identifier for the bioregion
-   * @returns Array of ritual names
+   * @returns Array of rituals if bioregion exists, otherwise empty array
    */
   static getBioregionRituals(id: string): string[] {
     const bioregion = bioregions.get(id);
-    if (!bioregion) {
-      throw new Error(`Bioregion with ID ${id} not found`);
-    }
-    return bioregion.rituals;
+    return bioregion ? bioregion.rituals : [];
   }
 }
 
