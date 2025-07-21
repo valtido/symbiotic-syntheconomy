@@ -1,27 +1,18 @@
-// Ritual Metadata Validation Utilities
+// Utility functions for validating ritual metadata
 
 /**
- * Interface defining the structure of ritual metadata
- */
-interface RitualMetadata {
-  name: string;
-  description: string;
-  participants: string[];
-  timestamp: number;
-}
-
-/**
- * Validates ritual metadata against defined rules
- * @param metadata The metadata object to validate
- * @returns True if metadata is valid, false otherwise
+ * Validates ritual metadata against defined rules.
+ * @param metadata - The metadata object to validate
+ * @returns true if metadata is valid, false otherwise
  */
 export function validateRitualMetadata(metadata: any): boolean {
-  return getValidationErrors(metadata).length === 0;
+  const errors = getValidationErrors(metadata);
+  return errors.length === 0;
 }
 
 /**
- * Gets validation errors for ritual metadata
- * @param metadata The metadata object to validate
+ * Returns an array of validation error messages for the given metadata.
+ * @param metadata - The metadata object to validate
  * @returns Array of error messages, empty if valid
  */
 export function getValidationErrors(metadata: any): string[] {
@@ -55,7 +46,7 @@ export function getValidationErrors(metadata: any): string[] {
   }
 
   // Validate timestamp (valid number)
-  if (typeof metadata.timestamp !== 'number' || isNaN(metadata.timestamp)) {
+  if (metadata.timestamp === undefined || typeof metadata.timestamp !== 'number' || isNaN(metadata.timestamp)) {
     errors.push('Timestamp must be a valid number');
   }
 
