@@ -40,6 +40,8 @@
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
     "ai:apply": "npx tsx scripts/autoApplyAIContribution.ts",
     "ai:webhook": "npx tsx scripts/aiWebhookServer.ts",
+    "ai:api": "npx tsx scripts/aiApiServer.ts",
+    "ai:api:mock": "npx tsx scripts/aiApiServerMock.ts",
     "configure:ai-agents": "npx tsx scripts/configureAIAgents.ts",
     "fix:webhook": "npx tsx scripts/fixWebhook.ts",
     "test:jest": "jest",
