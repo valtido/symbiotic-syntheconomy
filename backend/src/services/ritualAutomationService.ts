@@ -1,163 +1,170 @@
 // Advanced Ritual Automation Service for Symbiotic Syntheconomy
-// Implements intelligent workflow optimization, automated validation, and smart routing
 
 import { injectable, inject } from 'tsyringe';
 import { Logger } from 'winston';
-import { RitualContext, RitualStep, WorkflowResult, ValidationResult } from '../models/ritualModels';
-import { WorkflowValidator } from './workflowValidator';
-import { DecisionEngine } from './decisionEngine';
-import { RoutingService } from './routingService';
+import { Ritual, RitualStep, WorkflowContext, ValidationResult } from '../models/ritualModels';
+import { WorkflowEngine } from '../engines/workflowEngine';
+import { ValidationService } from './validationService';
 
 @injectable()
 export class RitualAutomationService {
   private readonly logger: Logger;
-  private readonly validator: WorkflowValidator;
-  private readonly decisionEngine: DecisionEngine;
-  private readonly routingService: RoutingService;
+  private readonly workflowEngine: WorkflowEngine;
+  private readonly validationService: ValidationService;
 
   constructor(
     @inject('Logger') logger: Logger,
-    @inject(WorkflowValidator) validator: WorkflowValidator,
-    @inject(DecisionEngine) decisionEngine: DecisionEngine,
-    @inject(RoutingService) routingService: RoutingService
+    @inject(WorkflowEngine) workflowEngine: WorkflowEngine,
+    @inject(ValidationService) validationService: ValidationService
   ) {
     this.logger = logger;
-    this.validator = validator;
-    this.decisionEngine = decisionEngine;
-    this.routingService = routingService;
+    this.workflowEngine = workflowEngine;
+    this.validationService = validationService;
   }
 
   /**
-   * Initiates and manages a complete ritual workflow with optimization
-   * @param context The ritual context containing initial parameters and state
-   * @returns Promise<WorkflowResult> The result of the workflow execution
+   * Initiates a ritual workflow with automated processing and optimization
+   * @param ritual The ritual to process
+   * @param context Workflow execution context
+   * @returns Promise with the execution result
    */
-  async executeRitualWorkflow(context: RitualContext): Promise<WorkflowResult> {
+  async initiateRitual(ritual: Ritual, context: WorkflowContext): Promise<any> {
     try {
-      this.logger.info(`Initiating ritual workflow for context: ${context.id}`);
-      
-      // Validate initial context
-      const validationResult = await this.validateContext(context);
+      this.logger.info(`Initiating ritual: ${ritual.name}`, { ritualId: ritual.id });
+      const validationResult = await this.validateRitual(ritual);
       if (!validationResult.isValid) {
-        return this.handleValidationFailure(context, validationResult);
+        throw new Error(`Ritual validation failed: ${validationResult.errors.join(', ')}`);
       }
 
-      // Execute optimized workflow
-      return await this.executeOptimizedWorkflow(context);
+      return await this.executeWorkflow(ritual, context);
     } catch (error) {
-      this.logger.error(`Error in ritual workflow execution: ${error.message}`, { contextId: context.id, error });
-      return {
-        success: false,
-        context,
-        error: error.message,
-        stepsCompleted: []
-      };
+      this.logger.error(`Error initiating ritual ${ritual.name}:`, error);
+      throw error;
     }
   }
 
   /**
-   * Validates the ritual context before workflow execution
-   * @param context The ritual context to validate
-   * @returns Promise<ValidationResult> The validation result
+   * Validates a ritual before processing
+   * @param ritual The ritual to validate
+   * @returns Validation result
    */
-  private async validateContext(context: RitualContext): Promise<ValidationResult> {
-    this.logger.debug(`Validating ritual context: ${context.id}`);
-    return await this.validator.validateContext(context);
+  async validateRitual(ritual: Ritual): Promise<ValidationResult> {
+    this.logger.debug(`Validating ritual: ${ritual.name}`);
+    return await this.validationService.validate(ritual);
   }
 
   /**
-   * Executes an optimized workflow based on context and adaptive decision making
-   * @param context The ritual context
-   * @returns Promise<WorkflowResult> The execution result
+   * Executes the ritual workflow with smart routing and optimization
+   * @param ritual The ritual to execute
+   * @param context Workflow context
+   * @returns Execution result
    */
-  private async executeOptimizedWorkflow(context: RitualContext): Promise<WorkflowResult> {
-    const stepsCompleted: RitualStep[] = [];
-    let currentContext = { ...context };
+  async executeWorkflow(ritual: Ritual, context: WorkflowContext): Promise<any> {
+    this.logger.info(`Executing workflow for ritual: ${ritual.name}`);
+    const optimizedSteps = await this.optimizeWorkflow(ritual.steps, context);
+    return await this.workflowEngine.execute(optimizedSteps, context);
+  }
 
-    this.logger.info(`Starting optimized workflow for context: ${context.id}`);
+  /**
+   * Optimizes the ritual workflow based on context and decision trees
+   * @param steps Ritual steps to optimize
+   * @param context Workflow context
+   * @returns Optimized steps
+   */
+  async optimizeWorkflow(steps: RitualStep[], context: WorkflowContext): Promise<RitualStep[]> {
+    this.logger.debug('Optimizing workflow steps', { stepCount: steps.length });
+    const decisionTree = this.buildDecisionTree(steps, context);
+    return this.applySmartRouting(steps, decisionTree, context);
+  }
 
-    while (!this.isWorkflowComplete(currentContext)) {
-      // Get next step using decision engine
-      const nextStep = await this.decisionEngine.determineNextStep(currentContext, stepsCompleted);
-      
-      if (!nextStep) {
-        this.logger.warn(`No further steps determined for context: ${context.id}`);
-        break;
-      }
-
-      // Route and execute the step
-      const stepResult = await this.routingService.routeAndExecuteStep(currentContext, nextStep);
-      
-      if (!stepResult.success) {
-        this.logger.error(`Step execution failed: ${nextStep.name}`, { contextId: context.id, step: nextStep });
-        return {
-          success: false,
-          context: currentContext,
-          error: stepResult.error || `Failed at step: ${nextStep.name}`,
-          stepsCompleted
-        };
-      }
-
-      // Update context and record completed step
-      currentContext = stepResult.updatedContext;
-      stepsCompleted.push({ ...nextStep, completedAt: new Date() });
-      
-      this.logger.debug(`Completed step: ${nextStep.name} for context: ${context.id}`);
-    }
-
+  /**
+   * Builds a decision tree for workflow optimization
+   * @param steps Ritual steps
+   * @param context Workflow context
+   * @returns Decision tree structure
+   */
+  private buildDecisionTree(steps: RitualStep[], context: WorkflowContext): any {
+    // Implement decision tree logic based on context and step dependencies
+    this.logger.debug('Building decision tree for workflow');
     return {
-      success: true,
-      context: currentContext,
-      stepsCompleted
+      nodes: steps.map(step => ({
+        id: step.id,
+        dependencies: step.dependencies,
+        conditions: step.conditions || []
+      })),
+      context
     };
   }
 
   /**
-   * Handles validation failure cases
-   * @param context The ritual context
-   * @param validationResult The validation result
-   * @returns WorkflowResult The failure result
+   * Applies smart routing based on decision tree
+   * @param steps Original steps
+   * @param decisionTree Decision tree structure
+   * @param context Workflow context
+   * @returns Optimized steps with routing
    */
-  private handleValidationFailure(context: RitualContext, validationResult: ValidationResult): WorkflowResult {
-    this.logger.warn(`Validation failed for context: ${context.id}`, { errors: validationResult.errors });
-    return {
-      success: false,
-      context,
-      error: 'Validation failed',
-      stepsCompleted: [],
-      validationErrors: validationResult.errors
-    };
+  private applySmartRouting(steps: RitualStep[], decisionTree: any, context: WorkflowContext): RitualStep[] {
+    this.logger.debug('Applying smart routing to workflow');
+    // Filter and reorder steps based on decision tree evaluation
+    return steps.filter(step => {
+      const node = decisionTree.nodes.find(n => n.id === step.id);
+      return this.evaluateConditions(node.conditions, context);
+    });
   }
 
   /**
-   * Determines if the workflow is complete based on context state
-   * @param context The current ritual context
-   * @returns boolean Whether the workflow is complete
+   * Evaluates conditions for step execution
+   * @param conditions Conditions to evaluate
+   * @param context Workflow context
+   * @returns Boolean indicating if conditions are met
    */
-  private isWorkflowComplete(context: RitualContext): boolean {
-    // Implement completion logic based on context state
-    return context.state === 'completed' || context.state === 'terminated';
+  private evaluateConditions(conditions: any[], context: WorkflowContext): boolean {
+    if (!conditions.length) return true;
+    return conditions.every(condition => {
+      // Evaluate each condition against context
+      return this.checkCondition(condition, context);
+    });
   }
 
   /**
-   * Optimizes the workflow by analyzing historical data and current context
-   * @param context The ritual context
-   * @param stepsCompleted Completed steps so far
-   * @returns Promise<RitualStep[]> Optimized sequence of steps
+   * Checks a single condition against context
+   * @param condition Condition to check
+   * @param context Workflow context
+   * @returns Boolean result
    */
-  async optimizeWorkflow(context: RitualContext, stepsCompleted: RitualStep[]): Promise<RitualStep[]> {
-    this.logger.info(`Optimizing workflow for context: ${context.id}`);
-    return await this.decisionEngine.optimizeWorkflow(context, stepsCompleted);
+  private checkCondition(condition: any, context: WorkflowContext): boolean {
+    // Implement condition checking logic
+    this.logger.debug('Checking condition', { condition });
+    return context.data[condition.key] === condition.value;
   }
 
   /**
-   * Adapts the workflow based on runtime conditions
-   * @param context The current ritual context
-   * @param currentStep The current step being executed
-   * @returns Promise<RitualStep | null> Adapted next step or null if no adaptation needed
+   * Handles adaptive workflow updates during execution
+   * @param ritual Ritual being executed
+   * @param context Current context
+   * @param feedback Feedback from execution
    */
-  async adaptWorkflow(context: RitualContext, currentStep: RitualStep): Promise<RitualStep | null> {
-    this.logger.debug(`Adapting workflow for context: ${context.id} at step: ${currentStep.name}`);
-    return await this.decisionEngine.adaptWorkflow(context, currentStep);
+  async handleAdaptiveUpdate(ritual: Ritual, context: WorkflowContext, feedback: any): Promise<void> {
+    this.logger.info(`Handling adaptive update for ritual: ${ritual.name}`);
+    const updatedSteps = this.adjustWorkflow(ritual.steps, feedback, context);
+    await this.executeWorkflow({ ...ritual, steps: updatedSteps }, context);
+  }
+
+  /**
+   * Adjusts workflow based on feedback
+   * @param steps Current steps
+   * @param feedback Execution feedback
+   * @param context Workflow context
+   * @returns Adjusted steps
+   */
+  private adjustWorkflow(steps: RitualStep[], feedback: any, context: WorkflowContext): RitualStep[] {
+    this.logger.debug('Adjusting workflow based on feedback', { feedback });
+    // Implement logic to adjust steps based on feedback
+    return steps.map(step => {
+      if (feedback[step.id]) {
+        return { ...step, status: feedback[step.id].status };
+      }
+      return step;
+    });
   }
 }
