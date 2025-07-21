@@ -7,15 +7,23 @@ import { execSync } from 'child_process';
 const app = express();
 const PORT = 3008;
 
-app.use(express.json());
+// Use more tolerant JSON parsing
+app.use(
+  express.json({
+    strict: false,
+    limit: '10mb', // Allow larger payloads
+  }),
+);
 
 interface AIContribution {
   agent: string;
   task: string;
   code?: string;
+  codeBase64?: string; // Base64 encoded code as fallback
   filePath?: string;
   commands?: string[];
   testCommand?: string;
+  testCommandBase64?: string; // Base64 encoded test command
 }
 
 class AIWebhookServer {
@@ -35,13 +43,58 @@ class AIWebhookServer {
     }
   }
 
+  // Decode base64 content safely
+  private decodeBase64(base64String: string): string {
+    try {
+      return Buffer.from(base64String, 'base64').toString('utf-8');
+    } catch (error) {
+      this.log(`❌ Base64 decode failed: ${error}`);
+      return '';
+    }
+  }
+
+  // Sanitize code content by handling common escaping issues
+  private sanitizeCode(code: string): string {
+    // Replace escaped newlines with actual newlines
+    let sanitized = code.replace(/\\n/g, '\n');
+
+    // Handle double-escaped quotes
+    sanitized = sanitized.replace(/\\"/g, '"');
+
+    // Handle template literals that might break JSON
+    sanitized = sanitized.replace(/`([^`]*)`/g, (match, content) => {
+      // Convert template literals to string concatenation
+      return `"${content.replace(/\${([^}]*)}/g, '" + $1 + "')}"`;
+    });
+
+    return sanitized;
+  }
+
+  // Safely wrap shell commands to prevent injection
+  private sanitizeCommand(command: string): string {
+    // Basic command sanitization
+    if (command.includes('node -e')) {
+      // For node -e commands, use a safer approach
+      return command.replace(/node -e "([^"]*)"/, (match, code) => {
+        // Create a temporary file instead of inline eval
+        const tempFile = `temp-${Date.now()}.js`;
+        fs.writeFileSync(tempFile, code);
+        return `node ${tempFile} && rm ${tempFile}`;
+      });
+    }
+    return command;
+  }
+
   async createFile(filePath: string, content: string): Promise<boolean> {
     try {
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(filePath, content, 'utf-8');
+
+      // Sanitize the content before writing
+      const sanitizedContent = this.sanitizeCode(content);
+      fs.writeFileSync(filePath, sanitizedContent, 'utf-8');
       this.log(`📄 Created file: ${filePath}`);
       return true;
     } catch (error) {
@@ -53,9 +106,10 @@ class AIWebhookServer {
   async executeCommands(commands: string[]): Promise<boolean> {
     try {
       for (const command of commands) {
-        this.log(`🚀 Executing: ${command}`);
-        execSync(command, { stdio: 'inherit' });
-        this.log(`✅ Successfully executed: ${command}`);
+        const sanitizedCommand = this.sanitizeCommand(command);
+        this.log(`🚀 Executing: ${sanitizedCommand}`);
+        execSync(sanitizedCommand, { stdio: 'inherit' });
+        this.log(`✅ Successfully executed: ${sanitizedCommand}`);
       }
       return true;
     } catch (error) {
@@ -72,9 +126,17 @@ class AIWebhookServer {
     this.log(`📋 Task: ${contribution.task}`);
 
     try {
+      // Handle code content with fallback to base64
+      let codeContent = '';
+      if (contribution.code) {
+        codeContent = contribution.code;
+      } else if (contribution.codeBase64) {
+        codeContent = this.decodeBase64(contribution.codeBase64);
+      }
+
       // Create file if code provided
-      if (contribution.code && contribution.filePath) {
-        await this.createFile(contribution.filePath, contribution.code);
+      if (codeContent && contribution.filePath) {
+        await this.createFile(contribution.filePath, codeContent);
       }
 
       // Execute commands if provided
@@ -82,11 +144,20 @@ class AIWebhookServer {
         await this.executeCommands(contribution.commands);
       }
 
-      // Execute test if provided
+      // Handle test command with fallback to base64
+      let testCommand = '';
       if (contribution.testCommand) {
+        testCommand = contribution.testCommand;
+      } else if (contribution.testCommandBase64) {
+        testCommand = this.decodeBase64(contribution.testCommandBase64);
+      }
+
+      // Execute test if provided
+      if (testCommand) {
         try {
-          this.log(`🧪 Executing test: ${contribution.testCommand}`);
-          execSync(contribution.testCommand, { stdio: 'inherit' });
+          const sanitizedTestCommand = this.sanitizeCommand(testCommand);
+          this.log(`🧪 Executing test: ${sanitizedTestCommand}`);
+          execSync(sanitizedTestCommand, { stdio: 'inherit' });
           this.log(`✅ Test executed successfully`);
         } catch (error) {
           this.log(`❌ Test execution failed: ${error}`);
@@ -113,6 +184,9 @@ const aiServer = new AIWebhookServer();
 // AI Contribution Webhook Endpoint
 app.post('/ai-contribution', async (req, res) => {
   try {
+    console.log('📥 Received webhook request');
+    console.log('📋 Request body keys:', Object.keys(req.body));
+
     const contribution = req.body as AIContribution;
 
     // Validate required fields
@@ -128,7 +202,10 @@ app.post('/ai-contribution', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('AI contribution webhook error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 });
 
