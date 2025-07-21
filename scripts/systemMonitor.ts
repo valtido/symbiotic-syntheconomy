@@ -146,7 +146,12 @@ class SystemMonitor {
       this.log('Restarting backend...', 'WARN');
 
       // Kill any existing backend process
-      await this.killProcessOnPort(3006);
+      try {
+        await this.killProcessOnPort(3006);
+      } catch (error) {
+        // No process to kill, which is fine
+        this.log('No existing backend process found to kill', 'INFO');
+      }
 
       // Wait a moment for port to be freed
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -184,7 +189,12 @@ class SystemMonitor {
       this.log('Restarting LocalTunnel...', 'WARN');
 
       // Kill any existing localtunnel process
-      const { stdout } = await execAsync('pkill -f "localtunnel.*3006"');
+      try {
+        await execAsync('pkill -f "localtunnel.*3006"');
+      } catch (error) {
+        // No process to kill, which is fine
+        this.log('No existing LocalTunnel process found to kill', 'INFO');
+      }
 
       // Wait a moment
       await new Promise((resolve) => setTimeout(resolve, 2000));
