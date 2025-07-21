@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-cdn
+  namespace: symbiotic-syntheconomy
+  labels:
+    app: ai-cdn
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ai-cdn
+  template:
+    metadata:
+      labels:
+        app: ai-cdn
+    spec:
+      containers:
+      - name: ai-cdn
+        image: nginx:1.21.6
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1024Mi"
+        env:
+        - name: AI_OPTIMIZATION
+          value: "enabled"
+        - name: CONTENT_TYPE
+          value: "ritual-cultural-media"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/conf.d
+      - name: ai-optimizer
+        image: tensorflow/tensorflow:2.8.0
+        command: ["/bin/sh", "-c", "python /app/optimizer.py"]
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "1024Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2048Mi"
+        env:
+        - name: CDN_REGION
+          value: "global"
+        volumeMounts:
+        - name: ai-scripts
+          mountPath: /app
+      volumes:
+      - name: config-volume
+        configMap:
+          name: ai-cdn-config
+      - name: ai-scripts
+        configMap:
+          name: ai-optimizer-scripts
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-cdn-service
+  namespace: symbiotic-syntheconomy
+spec:
+  selector:
+    app: ai-cdn
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
