@@ -39,6 +39,7 @@
     "status": "npx tsx scripts/systemStatus.ts",
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
     "ai:apply": "npx tsx scripts/autoApplyAIContribution.ts",
+    "ai:webhook": "npx tsx scripts/aiWebhookServer.ts",
     "configure:ai-agents": "npx tsx scripts/configureAIAgents.ts",
     "fix:webhook": "npx tsx scripts/fixWebhook.ts",
     "test:jest": "jest",
@@ -72,6 +73,8 @@
     "@octokit/request": "^10.0.3",
     "@octokit/rest": "^22.0.0",
     "@testing-library/react": "^16.3.0",
+    "@types/express": "^5.0.3",
+    "express": "^5.1.0",
     "js-base64": "^3.7.7",
     "jsonwebtoken": "^9.0.2"
   }
