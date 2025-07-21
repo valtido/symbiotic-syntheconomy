@@ -16,14 +16,14 @@ interface PreloadConfig {
   retryDelay: number;
 }
 
-class ChatGPTPreloader {
+class UniversalAIPreloader {
   private config: PreloadConfig;
   private isPreloaded: boolean = false;
   private sessionId: string;
 
   constructor() {
     this.config = {
-      directiveFile: 'CHATGPT_API_DIRECTIVE.md',
+      directiveFile: 'UNIVERSAL_AI_INVITATION.md',
       apiUrl: 'http://localhost:3010/ai-task',
       webhookUrl: 'http://localhost:3008/ai-contribution',
       taskListFile: 'tasks/task-list.json',
@@ -335,7 +335,7 @@ class ChatGPTPreloader {
 
 // CLI interface
 async function main() {
-  const preloader = new ChatGPTPreloader();
+  const preloader = new UniversalAIPreloader();
   const command = process.argv[2];
 
   switch (command) {
@@ -354,9 +354,9 @@ async function main() {
       break;
     default:
       console.log(`
-🤖 ChatGPT Preloader Commands:
+🤖 Universal AI Preloader Commands:
 
-  npm run chatgpt:preload  - Send initial directive to ChatGPT
+  npm run chatgpt:preload  - Send initial directive to AI
   npm run chatgpt:next     - Send next pending task
   npm run chatgpt:all      - Process all pending tasks
   npm run chatgpt:status   - Show preloader status
@@ -374,4 +374,4 @@ if (require.main === module) {
   main().catch(console.error);
 }
 
-export default ChatGPTPreloader;
+export default UniversalAIPreloader;
