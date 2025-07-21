@@ -1,23 +1,21 @@
-export interface RitualMetadata {
-  name: string;
-  description: string;
-  participants: string[];
-  timestamp: number;
-}
-
-export function validateRitualMetadata(metadata: any): boolean {
-  if (!metadata.name || metadata.name.length < 3 || metadata.name.length > 50) return false;
-  if (!metadata.description || metadata.description.length < 10 || metadata.description.length > 500) return false;
-  if (!Array.isArray(metadata.participants) || metadata.participants.length === 0) return false;
-  if (!metadata.timestamp || isNaN(metadata.timestamp)) return false;
-  return true;
-}
-
 export function getValidationErrors(metadata: any): string[] {
-  const errors = [];
-  if (!metadata.name || metadata.name.length < 3 || metadata.name.length > 50) errors.push("Name must be 3-50 characters");
-  if (!metadata.description || metadata.description.length < 10 || metadata.description.length > 500) errors.push("Description must be 10-500 characters");
-  if (!Array.isArray(metadata.participants) || metadata.participants.length === 0) errors.push("Participants must be a non-empty array");
-  if (!metadata.timestamp || isNaN(metadata.timestamp)) errors.push("Timestamp must be a valid number");
+  const errors: string[] = [];
+  if (typeof metadata !== "object" || metadata === null) {
+    errors.push("Metadata must be an object");
+    return errors;
+  }
+  const { name, description, participants, timestamp } = metadata;
+  if (typeof name !== "string" || name.length < 3 || name.length > 50) {
+    errors.push("Name must be 3-50 characters");
+  }
+  if (typeof description !== "string" || description.length < 10 || description.length > 500) {
+    errors.push("Description must be 10-500 characters");
+  }
+  if (!Array.isArray(participants) || participants.length === 0) {
+    errors.push("Participants must be a non-empty array");
+  }
+  if (typeof timestamp !== "number" || isNaN(new Date(timestamp).getTime())) {
+    errors.push("Timestamp must be a valid date timestamp");
+  }
   return errors;
 }
