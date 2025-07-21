@@ -38,6 +38,7 @@
     "monitor": "npx tsx scripts/systemMonitor.ts",
     "start:system": "npx tsx scripts/startSystem.ts",
     "status": "npx tsx scripts/systemStatus.ts",
+    "status:watch": "npx tsx scripts/systemStatus.ts watch",
     "ai:next-patch": "npx tsx scripts/generateNextPatch.ts",
     "ai:apply": "npx tsx scripts/autoApplyAIContribution.ts",
     "ai:webhook": "npx tsx scripts/aiWebhookServer.ts",
