@@ -98,6 +98,10 @@ public
 .dynamodb/
 
 # TernJS port file
+
+# Webhook state files
+backend/patches/processed-commits.json
+patches/processed-commits.json
 .tern-port
 
 # Stores VSCode versions used for testing VSCode extensions
