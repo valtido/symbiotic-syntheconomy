@@ -1,0 +1,1 @@
+  const filePath = path.join(logsDir, rituals.json);\n  let rituals: any[] = [];\n  if (fs.existsSync(filePath)) {\n    const raw = fs.readFileSync(filePath, utf-8);\n    try { rituals = JSON.parse(raw); } catch { rituals = []; }\n  }\n  rituals.push({ ...metadata, loggedAt: new Date().toISOString() });\n  fs.writeFileSync(filePath, JSON.stringify(rituals, null, 2));\n}
