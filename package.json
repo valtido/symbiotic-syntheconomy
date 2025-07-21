@@ -46,6 +46,7 @@
     "ai:webhook": "npx tsx scripts/aiWebhookServer.ts",
     "ai:api": "npx tsx scripts/aiApiServer.ts",
     "ai:api:mock": "npx tsx scripts/aiApiServerMock.ts",
+    "ai:test": "npx tsx scripts/testAiProviders.ts",
     "tasks:generate": "npx tsx scripts/taskManager.ts generate",
     "tasks:process": "npx tsx scripts/taskManager.ts process",
     "tasks:list": "npx tsx scripts/taskManager.ts list",

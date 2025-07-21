@@ -23,6 +23,9 @@ interface AITask {
   filePath?: string;
   requirements?: string;
   agent?: string;
+  sessionId?: string;
+  isPreload?: boolean;
+  taskId?: string;
 }
 
 interface AIContribution {
@@ -36,9 +39,71 @@ interface AIContribution {
   testCommandBase64?: string;
 }
 
+interface AIProvider {
+  name: string;
+  apiKey: string;
+  baseUrl: string;
+  models: string[];
+  checkQuota: (apiKey: string) => Promise<boolean>;
+  sendRequest: (task: AITask, apiKey: string, model: string) => Promise<string>;
+}
+
 class AIApiServer {
   private logFile = path.join('log', 'ai-api.log');
-  private openaiApiKey = process.env.OPENAI_API_KEY;
+  private providers: AIProvider[] = [];
+  private currentProviderIndex = 0;
+
+  constructor() {
+    this.initializeProviders();
+  }
+
+  private initializeProviders() {
+    // ChatGPT Provider
+    if (process.env.OPENAI_API_KEY) {
+      this.providers.push({
+        name: 'ChatGPT',
+        apiKey: process.env.OPENAI_API_KEY,
+        baseUrl: 'https://api.openai.com/v1',
+        models: ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+        checkQuota: this.checkOpenAIQuota.bind(this),
+        sendRequest: this.sendOpenAIRequest.bind(this),
+      });
+    }
+
+    // Claude Provider
+    if (process.env.CLAUDE_API_KEY) {
+      this.providers.push({
+        name: 'Claude',
+        apiKey: process.env.CLAUDE_API_KEY,
+        baseUrl: 'https://api.anthropic.com/v1',
+        models: [
+          'claude-3-5-sonnet-20241022',
+          'claude-3-opus-20240229',
+          'claude-3-sonnet-20240229',
+        ],
+        checkQuota: this.checkClaudeQuota.bind(this),
+        sendRequest: this.sendClaudeRequest.bind(this),
+      });
+    }
+
+    // Grok Provider (if available)
+    if (process.env.GROK_API_KEY) {
+      this.providers.push({
+        name: 'Grok',
+        apiKey: process.env.GROK_API_KEY,
+        baseUrl: 'https://api.x.ai/v1',
+        models: ['grok-3-latest', 'grok-beta'],
+        checkQuota: this.checkGrokQuota.bind(this),
+        sendRequest: this.sendGrokRequest.bind(this),
+      });
+    }
+
+    this.log(
+      `🤖 Initialized ${this.providers.length} AI providers: ${this.providers
+        .map((p) => p.name)
+        .join(', ')}`,
+    );
+  }
 
   private log(message: string) {
     const timestamp = new Date().toISOString();
@@ -54,22 +119,95 @@ class AIApiServer {
     }
   }
 
-  // Send task to ChatGPT API
-  private async sendToChatGPT(task: AITask): Promise<string> {
-    if (!this.openaiApiKey) {
-      throw new Error('OPENAI_API_KEY not found in environment variables');
+  // Check OpenAI quota
+  private async checkOpenAIQuota(apiKey: string): Promise<boolean> {
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
+      return response.ok;
+    } catch (error) {
+      this.log(`❌ OpenAI quota check failed: ${error}`);
+      return false;
     }
+  }
 
+  // Check Claude quota
+  private async checkClaudeQuota(apiKey: string): Promise<boolean> {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'test' }],
+        }),
+      });
+
+      // If we get a quota error, return false
+      if (response.status === 429 || response.status === 402) {
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.log(`❌ Claude quota check failed: ${error}`);
+      return false;
+    }
+  }
+
+  // Check Grok quota
+  private async checkGrokQuota(apiKey: string): Promise<boolean> {
+    try {
+      // Test with a minimal request to check quota
+      const response = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'grok-3-latest',
+          messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 1,
+          stream: false,
+          temperature: 0,
+        }),
+      });
+
+      // If we get a quota error, return false
+      if (response.status === 429 || response.status === 402) {
+        return false;
+      }
+      return response.ok;
+    } catch (error) {
+      this.log(`❌ Grok quota check failed: ${error}`);
+      return false;
+    }
+  }
+
+  // Send request to OpenAI
+  private async sendOpenAIRequest(
+    task: AITask,
+    apiKey: string,
+    model: string,
+  ): Promise<string> {
     const prompt = this.buildPrompt(task);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.openaiApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: model,
         messages: [
           {
             role: 'system',
@@ -87,8 +225,9 @@ class AIApiServer {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
       throw new Error(
-        `OpenAI API error: ${response.status} ${response.statusText}`,
+        `OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`,
       );
     }
 
@@ -96,7 +235,89 @@ class AIApiServer {
     return data.choices[0].message.content;
   }
 
-  // Build prompt for ChatGPT
+  // Send request to Claude
+  private async sendClaudeRequest(
+    task: AITask,
+    apiKey: string,
+    model: string,
+  ): Promise<string> {
+    const prompt = this.buildPrompt(task);
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 4000,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Claude API error: ${response.status} ${response.statusText} - ${errorText}`,
+      );
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  }
+
+  // Send request to Grok
+  private async sendGrokRequest(
+    task: AITask,
+    apiKey: string,
+    model: string,
+  ): Promise<string> {
+    const prompt = this.buildPrompt(task);
+
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an AI developer contributing to the Symbiotic Syntheconomy project. Generate code and commands based on the task requirements.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        stream: false,
+        temperature: 0.7,
+        max_tokens: 4000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Grok API error: ${response.status} ${response.statusText} - ${errorText}`,
+      );
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  }
+
+  // Build prompt for AI providers
   private buildPrompt(task: AITask): string {
     return `
 TASK: ${task.task}
@@ -107,7 +328,7 @@ ${task.filePath ? `FILE PATH: ${task.filePath}` : ''}
 Please provide your contribution in the following JSON format:
 
 {
-  "agent": "${task.agent || 'ChatGPT'}",
+  "agent": "${task.agent || 'AI Assistant'}",
   "task": "${task.task}",
   "filePath": "${task.filePath || ''}",
   "code": "// Your code here",
@@ -127,32 +348,38 @@ IMPORTANT:
 `;
   }
 
-  // Parse ChatGPT response into contribution
-  private parseChatGPTResponse(response: string): AIContribution {
+  // Parse AI response into contribution
+  private parseAIResponse(
+    response: string,
+    providerName: string,
+  ): AIContribution {
     try {
       // Try to extract JSON from the response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return parsed as AIContribution;
+        return {
+          ...parsed,
+          agent: parsed.agent || providerName,
+        } as AIContribution;
       }
 
       // If no JSON found, create a basic contribution
       return {
-        agent: 'ChatGPT',
+        agent: providerName,
         task: 'Generated from API',
         code: response,
-        filePath: 'generated-response.txt',
+        filePath: `${providerName.toLowerCase()}-response.txt`,
         commands: ['echo "Response generated successfully"'],
       };
     } catch (error) {
-      this.log(`❌ Failed to parse ChatGPT response: ${error}`);
+      this.log(`❌ Failed to parse ${providerName} response: ${error}`);
       // Fallback: create a file with the raw response
       return {
-        agent: 'ChatGPT',
+        agent: providerName,
         task: 'Generated from API (fallback)',
         code: response,
-        filePath: 'chatgpt-response.txt',
+        filePath: `${providerName.toLowerCase()}-response.txt`,
         commands: ['echo "Raw response saved"'],
       };
     }
@@ -230,36 +457,111 @@ IMPORTANT:
     }
   }
 
-  // Main method to handle AI task
-  async handleAITask(
-    task: AITask,
-  ): Promise<{ success: boolean; message: string; response?: string }> {
+  // Main method to handle AI task with automatic fallback
+  async handleAITask(task: AITask): Promise<{
+    success: boolean;
+    message: string;
+    response?: string;
+    provider?: string;
+  }> {
     this.ensureLogDirectory();
     this.log(`📥 Received AI task: ${task.task}`);
 
-    try {
-      // Send task to ChatGPT
-      this.log(`🤖 Sending task to ChatGPT API...`);
-      const chatGPTResponse = await this.sendToChatGPT(task);
-      this.log(`📥 Received response from ChatGPT`);
-
-      // Parse the response
-      const contribution = this.parseChatGPTResponse(chatGPTResponse);
-
-      // Process the contribution
-      const result = await this.processContribution(contribution);
-
-      return {
-        ...result,
-        response: chatGPTResponse,
-      };
-    } catch (error) {
-      this.log(`❌ AI task processing failed: ${error}`);
+    if (this.providers.length === 0) {
       return {
         success: false,
-        message: `Failed to process AI task: ${error}`,
+        message:
+          'No AI providers configured. Please set up API keys for at least one provider.',
       };
     }
+
+    // Try each provider in order
+    for (let attempt = 0; attempt < this.providers.length; attempt++) {
+      const providerIndex =
+        (this.currentProviderIndex + attempt) % this.providers.length;
+      const provider = this.providers[providerIndex];
+
+      this.log(
+        `🔄 Trying provider: ${provider.name} (attempt ${attempt + 1}/${
+          this.providers.length
+        })`,
+      );
+
+      try {
+        // Check quota first
+        const hasQuota = await provider.checkQuota(provider.apiKey);
+        if (!hasQuota) {
+          this.log(
+            `⚠️ ${provider.name} quota exceeded, trying next provider...`,
+          );
+          continue;
+        }
+
+        // Try each model for this provider
+        for (const model of provider.models) {
+          try {
+            this.log(`🤖 Sending task to ${provider.name} (${model})...`);
+            const response = await provider.sendRequest(
+              task,
+              provider.apiKey,
+              model,
+            );
+            this.log(`📥 Received response from ${provider.name}`);
+
+            // Parse the response
+            const contribution = this.parseAIResponse(response, provider.name);
+
+            // Process the contribution
+            const result = await this.processContribution(contribution);
+
+            // Update current provider index for next request
+            this.currentProviderIndex = providerIndex;
+
+            return {
+              ...result,
+              response: response,
+              provider: provider.name,
+            };
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.log(`❌ ${provider.name} (${model}) failed: ${errorMessage}`);
+
+            // Check if it's a quota/rate limit error
+            if (
+              errorMessage.includes('429') ||
+              errorMessage.includes('insufficient_quota') ||
+              errorMessage.includes('quota')
+            ) {
+              this.log(
+                `⚠️ ${provider.name} quota/rate limit reached, trying next model...`,
+              );
+              continue;
+            }
+
+            // For other errors, try next model
+            this.log(
+              `⚠️ ${provider.name} (${model}) error, trying next model...`,
+            );
+          }
+        }
+
+        this.log(
+          `⚠️ All models for ${provider.name} failed, trying next provider...`,
+        );
+      } catch (error) {
+        this.log(`❌ ${provider.name} provider check failed: ${error}`);
+        continue;
+      }
+    }
+
+    // All providers failed
+    this.log(`❌ All AI providers failed to process task`);
+    return {
+      success: false,
+      message:
+        'All AI providers failed to process the task. Please check API keys and quota limits.',
+    };
   }
 }
 
@@ -293,11 +595,18 @@ app.post('/ai-task', async (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+  const providers = aiApiServer['providers'].map((p) => ({
+    name: p.name,
+    hasApiKey: !!p.apiKey,
+    models: p.models,
+  }));
+
   res.json({
     status: 'healthy',
-    service: 'AI API Server (Real)',
+    service: 'AI API Server (Dynamic Multi-Provider)',
     timestamp: new Date().toISOString(),
-    hasApiKey: !!process.env.OPENAI_API_KEY,
+    providers: providers,
+    totalProviders: providers.length,
   });
 });
 
