@@ -10,36 +10,40 @@ interface Ritual {
   name: string;
   description: string;
   origin: string;
-  dateRecorded: Date;
-  metadata: Record<string, any>;
+  dateCreated: Date;
+  lastUpdated: Date;
+  mediaUrls: string[];
+  oralHistories: OralHistory[];
 }
 
 interface OralHistory {
   id: string;
   narrator: string;
   content: string;
-  language: string;
-  recordingDate: Date;
-  audioFilePath?: string;
+  recordedDate: Date;
+  audioUrl?: string;
+  transcription?: string;
 }
 
 interface CulturalMemory {
   id: string;
   title: string;
-  category: string;
   content: string;
-  contributors: string[];
-  timestamp: Date;
+  category: string;
+  tags: string[];
+  dateAdded: Date;
 }
 
 // Storage configuration
 const STORAGE_DIR = path.join(__dirname, '../../storage/legacy');
 const RITUALS_FILE = path.join(STORAGE_DIR, 'rituals.json');
-const ORAL_HISTORY_FILE = path.join(STORAGE_DIR, 'oralHistory.json');
-const MEMORY_BANK_FILE = path.join(STORAGE_DIR, 'memoryBank.json');
+const MEMORIES_FILE = path.join(STORAGE_DIR, 'memories.json');
 
 @injectable()
 export class LegacyPreservationService {
+  private rituals: Ritual[] = [];
+  private memories: CulturalMemory[] = [];
+
   constructor() {
     this.initializeStorage();
   }
@@ -47,120 +51,121 @@ export class LegacyPreservationService {
   private async initializeStorage(): Promise<void> {
     try {
       await fs.mkdir(STORAGE_DIR, { recursive: true });
-      const files = [RITUALS_FILE, ORAL_HISTORY_FILE, MEMORY_BANK_FILE];
-      for (const file of files) {
-        try {
-          await fs.access(file);
-        } catch {
-          await fs.writeFile(file, JSON.stringify([]));
-        }
+
+      // Initialize rituals storage
+      try {
+        const ritualsData = await fs.readFile(RITUALS_FILE, 'utf-8');
+        this.rituals = JSON.parse(ritualsData);
+      } catch (error) {
+        this.rituals = [];
+        await this.saveRituals();
+      }
+
+      // Initialize memories storage
+      try {
+        const memoriesData = await fs.readFile(MEMORIES_FILE, 'utf-8');
+        this.memories = JSON.parse(memoriesData);
+      } catch (error) {
+        this.memories = [];
+        await this.saveMemories();
       }
     } catch (error) {
-      console.error('Error initializing storage:', error);
-      throw error;
+      console.error('Failed to initialize storage:', error);
+      throw new Error('Storage initialization failed');
     }
+  }
+
+  private async saveRituals(): Promise<void> {
+    await fs.writeFile(RITUALS_FILE, JSON.stringify(this.rituals, null, 2));
+  }
+
+  private async saveMemories(): Promise<void> {
+    await fs.writeFile(MEMORIES_FILE, JSON.stringify(this.memories, null, 2));
   }
 
   // Ritual Documentation Methods
-  async documentRitual(ritualData: Omit<Ritual, 'id' | 'dateRecorded'>): Promise<Ritual> {
+  async addRitual(ritualData: Omit<Ritual, 'id' | 'dateCreated' | 'lastUpdated' | 'oralHistories'>): Promise<Ritual> {
     const newRitual: Ritual = {
       ...ritualData,
       id: uuidv4(),
-      dateRecorded: new Date(),
+      dateCreated: new Date(),
+      lastUpdated: new Date(),
+      oralHistories: []
     };
-
-    const rituals = await this.readData<Ritual[]>(RITUALS_FILE);
-    rituals.push(newRitual);
-    await this.writeData(RITUALS_FILE, rituals);
+    this.rituals.push(newRitual);
+    await this.saveRituals();
     return newRitual;
   }
 
-  async getRituals(): Promise<Ritual[]> {
-    return this.readData<Ritual[]>(RITUALS_FILE);
+  async getRitualById(id: string): Promise<Ritual | undefined> {
+    return this.rituals.find(r => r.id === id);
+  }
+
+  async updateRitual(id: string, updateData: Partial<Ritual>): Promise<Ritual | undefined> {
+    const index = this.rituals.findIndex(r => r.id === id);
+    if (index !== -1) {
+      this.rituals[index] = { 
+        ...this.rituals[index], 
+        ...updateData, 
+        lastUpdated: new Date() 
+      };
+      await this.saveRituals();
+      return this.rituals[index];
+    }
+    return undefined;
   }
 
   // Oral History Recording Methods
-  async recordOralHistory(historyData: Omit<OralHistory, 'id' | 'recordingDate'>, audioBuffer?: Buffer): Promise<OralHistory> {
-    const newHistory: OralHistory = {
-      ...historyData,
-      id: uuidv4(),
-      recordingDate: new Date(),
-    };
-
-    if (audioBuffer) {
-      const audioPath = path.join(STORAGE_DIR, `audio_${newHistory.id}.mp3`);
-      await fs.writeFile(audioPath, audioBuffer);
-      newHistory.audioFilePath = audioPath;
+  async addOralHistory(ritualId: string, historyData: Omit<OralHistory, 'id' | 'recordedDate'>): Promise<OralHistory | undefined> {
+    const ritualIndex = this.rituals.findIndex(r => r.id === ritualId);
+    if (ritualIndex !== -1) {
+      const newHistory: OralHistory = {
+        ...historyData,
+        id: uuidv4(),
+        recordedDate: new Date()
+      };
+      this.rituals[ritualIndex].oralHistories.push(newHistory);
+      this.rituals[ritualIndex].lastUpdated = new Date();
+      await this.saveRituals();
+      return newHistory;
     }
-
-    const histories = await this.readData<OralHistory[]>(ORAL_HISTORY_FILE);
-    histories.push(newHistory);
-    await this.writeData(ORAL_HISTORY_FILE, histories);
-    return newHistory;
+    return undefined;
   }
 
-  async getOralHistories(): Promise<OralHistory[]> {
-    return this.readData<OralHistory[]>(ORAL_HISTORY_FILE);
+  async getOralHistoriesByRitualId(ritualId: string): Promise<OralHistory[] | undefined> {
+    const ritual = this.rituals.find(r => r.id === ritualId);
+    return ritual?.oralHistories;
   }
 
   // Cultural Memory Bank Methods
-  async addToMemoryBank(memoryData: Omit<CulturalMemory, 'id' | 'timestamp'>): Promise<CulturalMemory> {
+  async addCulturalMemory(memoryData: Omit<CulturalMemory, 'id' | 'dateAdded'>): Promise<CulturalMemory> {
     const newMemory: CulturalMemory = {
       ...memoryData,
       id: uuidv4(),
-      timestamp: new Date(),
+      dateAdded: new Date()
     };
-
-    const memories = await this.readData<CulturalMemory[]>(MEMORY_BANK_FILE);
-    memories.push(newMemory);
-    await this.writeData(MEMORY_BANK_FILE, memories);
+    this.memories.push(newMemory);
+    await this.saveMemories();
     return newMemory;
   }
 
-  async getMemoryBankEntries(category?: string): Promise<CulturalMemory[]> {
-    const memories = await this.readData<CulturalMemory[]>(MEMORY_BANK_FILE);
-    return category ? memories.filter(m => m.category === category) : memories;
+  async getMemoriesByCategory(category: string): Promise<CulturalMemory[]> {
+    return this.memories.filter(m => m.category === category);
   }
 
-  // Helper methods for file operations
-  private async readData<T>(filePath: string): Promise<T> {
-    try {
-      const data = await fs.readFile(filePath, 'utf-8');
-      return JSON.parse(data) as T;
-    } catch (error) {
-      console.error(`Error reading data from ${filePath}:`, error);
-      throw error;
+  async searchMemoriesByTags(tags: string[]): Promise<CulturalMemory[]> {
+    return this.memories.filter(m => tags.some(tag => m.tags.includes(tag)));
+  }
+
+  // Digital Preservation Methods
+  async addMediaToRitual(ritualId: string, mediaUrl: string): Promise<Ritual | undefined> {
+    const ritualIndex = this.rituals.findIndex(r => r.id === ritualId);
+    if (ritualIndex !== -1) {
+      this.rituals[ritualIndex].mediaUrls.push(mediaUrl);
+      this.rituals[ritualIndex].lastUpdated = new Date();
+      await this.saveRituals();
+      return this.rituals[ritualIndex];
     }
-  }
-
-  private async writeData<T>(filePath: string, data: T): Promise<void> {
-    try {
-      await fs.writeFile(filePath, JSON.stringify(data, null, 2));
-    } catch (error) {
-      console.error(`Error writing data to ${filePath}:`, error);
-      throw error;
-    }
-  }
-
-  // Backup method for digital preservation
-  async createBackup(): Promise<string> {
-    const backupDir = path.join(STORAGE_DIR, 'backups');
-    await fs.mkdir(backupDir, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = path.join(backupDir, `backup_${timestamp}.json`);
-
-    const rituals = await this.getRituals();
-    const histories = await this.getOralHistories();
-    const memories = await this.getMemoryBankEntries();
-
-    const backupData = {
-      rituals,
-      oralHistories: histories,
-      culturalMemories: memories,
-      timestamp: new Date(),
-    };
-
-    await this.writeData(backupPath, backupData);
-    return backupPath;
+    return undefined;
   }
 }
