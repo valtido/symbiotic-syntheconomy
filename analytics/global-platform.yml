@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  analytics-db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: global_analytics
+    volumes:
+      - analytics_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    networks:
+      - analytics-net
+
+  analytics-api:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./api:/app
+    command: ['npm', 'run', 'start']
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=analytics-db
+      - DB_USER=admin
+      - DB_PASS=secret
+      - DB_NAME=global_analytics
+    ports:
+      - '3000:3000'
+    depends_on:
+      - analytics-db
+    networks:
+      - analytics-net
+
+  analytics-dashboard:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=secret
+    ports:
+      - '8080:3000'
+    depends_on:
+      - analytics-api
+    networks:
+      - analytics-net
+
+volumes:
+  analytics_data:
+  grafana_data:
+
+networks:
+  analytics-net:
+    driver: bridge
