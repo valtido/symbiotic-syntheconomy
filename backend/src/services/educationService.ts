@@ -1,12 +1,14 @@
 // educationService.ts - Service for managing ritual education and learning platform
 
 import { injectable, inject } from 'tsyringe';
-import { Course, Certification, UserProgress } from '../models';
+import { Course, Module, Certification, UserProgress } from '../models';
 import { DatabaseService } from './databaseService';
 
 @injectable()
 export class EducationService {
-  constructor(@inject(DatabaseService) private dbService: DatabaseService) {}
+  constructor(
+    @inject(DatabaseService) private dbService: DatabaseService
+  ) {}
 
   // Course Management
   async createCourse(courseData: Partial<Course>): Promise<Course> {
@@ -18,58 +20,67 @@ export class EducationService {
     }
   }
 
-  async getCourseById(courseId: string): Promise<Course> {
+  async getCourses(culturalContext?: string): Promise<Course[]> {
     try {
-      const course = await this.dbService.findById('courses', courseId);
-      if (!course) throw new Error('Course not found');
-      return course as Course;
+      const query = culturalContext 
+        ? { culturalContext } 
+        : {};
+      const courses = await this.dbService.find('courses', query);
+      return courses as Course[];
     } catch (error) {
-      throw new Error(`Failed to get course: ${error.message}`);
+      throw new Error(`Failed to fetch courses: ${error.message}`);
     }
   }
 
-  async getAllCourses(): Promise<Course[]> {
+  // Module Management for Interactive Learning
+  async addModuleToCourse(courseId: string, moduleData: Partial<Module>): Promise<Module> {
     try {
-      return (await this.dbService.findAll('courses')) as Course[];
+      const newModule = await this.dbService.create('modules', {
+        ...moduleData,
+        courseId
+      });
+      await this.dbService.update('courses', courseId, {
+        $push: { modules: newModule._id }
+      });
+      return newModule as Module;
     } catch (error) {
-      throw new Error(`Failed to get all courses: ${error.message}`);
+      throw new Error(`Failed to add module: ${error.message}`);
     }
   }
 
   // User Progress Tracking
   async updateUserProgress(userId: string, courseId: string, progressData: Partial<UserProgress>): Promise<UserProgress> {
     try {
-      const progress = await this.dbService.upsert('userProgress', 
-        { userId, courseId }, 
-        { ...progressData, userId, courseId, updatedAt: new Date() }
-      );
-      return progress as UserProgress;
+      const progress = await this.dbService.findOne('userProgress', { userId, courseId });
+      if (progress) {
+        return await this.dbService.update('userProgress', progress._id, progressData) as UserProgress;
+      } else {
+        return await this.dbService.create('userProgress', {
+          userId,
+          courseId,
+          ...progressData
+        }) as UserProgress;
+      }
     } catch (error) {
       throw new Error(`Failed to update user progress: ${error.message}`);
     }
   }
 
-  async getUserProgress(userId: string, courseId: string): Promise<UserProgress> {
-    try {
-      const progress = await this.dbService.findOne('userProgress', { userId, courseId });
-      if (!progress) throw new Error('Progress not found');
-      return progress as UserProgress;
-    } catch (error) {
-      throw new Error(`Failed to get user progress: ${error.message}`);
-    }
-  }
-
-  // Certification Management
+  // Certification Programs
   async issueCertification(userId: string, courseId: string, certificationData: Partial<Certification>): Promise<Certification> {
     try {
-      const certification = await this.dbService.create('certifications', {
-        ...certificationData,
-        userId,
-        courseId,
-        issuedAt: new Date(),
-        status: 'active'
-      });
-      return certification as Certification;
+      const progress = await this.dbService.findOne('userProgress', { userId, courseId });
+      if (progress && progress.completionStatus === 'completed') {
+        const certification = await this.dbService.create('certifications', {
+          userId,
+          courseId,
+          ...certificationData,
+          issueDate: new Date()
+        });
+        return certification as Certification;
+      } else {
+        throw new Error('User has not completed the course');
+      }
     } catch (error) {
       throw new Error(`Failed to issue certification: ${error.message}`);
     }
@@ -77,29 +88,50 @@ export class EducationService {
 
   async getUserCertifications(userId: string): Promise<Certification[]> {
     try {
-      return (await this.dbService.findAll('certifications', { userId })) as Certification[];
+      const certifications = await this.dbService.find('certifications', { userId });
+      return certifications as Certification[];
     } catch (error) {
-      throw new Error(`Failed to get user certifications: ${error.message}`);
+      throw new Error(`Failed to fetch certifications: ${error.message}`);
     }
   }
 
   // Cultural Competency Training
-  async enrollInCulturalTraining(userId: string, trainingId: string): Promise<any> {
+  async enrollInCulturalTraining(userId: string, trainingId: string): Promise<UserProgress> {
     try {
-      return await this.dbService.upsert('culturalTrainingEnrollments', 
-        { userId, trainingId }, 
-        { userId, trainingId, enrolledAt: new Date(), status: 'enrolled' }
-      );
+      return await this.updateUserProgress(userId, trainingId, {
+        enrolled: true,
+        enrollmentDate: new Date(),
+        completionStatus: 'in-progress'
+      });
     } catch (error) {
       throw new Error(`Failed to enroll in cultural training: ${error.message}`);
     }
   }
 
-  async getCulturalTrainings(userId: string): Promise<any[]> {
+  // Community Knowledge Sharing
+  async shareKnowledge(userId: string, courseId: string, content: string): Promise<any> {
     try {
-      return await this.dbService.findAll('culturalTrainingEnrollments', { userId });
+      const contribution = await this.dbService.create('contributions', {
+        userId,
+        courseId,
+        content,
+        createdAt: new Date()
+      });
+      await this.dbService.update('courses', courseId, {
+        $push: { contributions: contribution._id }
+      });
+      return contribution;
     } catch (error) {
-      throw new Error(`Failed to get cultural trainings: ${error.message}`);
+      throw new Error(`Failed to share knowledge: ${error.message}`);
+    }
+  }
+
+  async getCommunityContributions(courseId: string): Promise<any[]> {
+    try {
+      const contributions = await this.dbService.find('contributions', { courseId });
+      return contributions;
+    } catch (error) {
+      throw new Error(`Failed to fetch contributions: ${error.message}`);
     }
   }
 }
