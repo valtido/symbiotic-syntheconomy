@@ -3,6 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { spawn } from 'child_process';
 
 interface SystemHealth {
   backend: boolean;
@@ -443,6 +444,60 @@ class SystemStatus {
     );
   }
 
+  private async executeCommand(
+    command: string,
+    args: string[] = [],
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      console.log(`\n🚀 Executing: ${command} ${args.join(' ')}`);
+
+      const child = spawn(command, args, {
+        stdio: 'pipe',
+        shell: true,
+        cwd: process.cwd(),
+      });
+
+      let output = '';
+      let errorOutput = '';
+
+      child.stdout?.on('data', (data) => {
+        output += data.toString();
+      });
+
+      child.stderr?.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          console.log(`✅ Command completed successfully`);
+          if (output.trim()) {
+            console.log(
+              `📄 Output: ${output.trim().split('\n').slice(-2).join('\n')}`,
+            );
+          }
+        } else {
+          console.log(`❌ Command failed with code ${code}`);
+          if (errorOutput.trim()) {
+            console.log(
+              `📄 Error: ${errorOutput
+                .trim()
+                .split('\n')
+                .slice(-2)
+                .join('\n')}`,
+            );
+          }
+        }
+        resolve();
+      });
+
+      child.on('error', (error) => {
+        console.log(`❌ Command error: ${error.message}`);
+        reject(error);
+      });
+    });
+  }
+
   private async handleKeyPress(key: string): Promise<void> {
     switch (key.toLowerCase()) {
       case '1':
@@ -467,36 +522,28 @@ class SystemStatus {
         // Refresh current view
         break;
       case 'c':
-        console.log('\n🚀 Running: npm run chatgpt:preload');
-        // Could execute command here
+        await this.executeCommand('npm', ['run', 'chatgpt:preload']);
         break;
       case 'n':
-        console.log('\n🚀 Running: npm run chatgpt:next');
-        // Could execute command here
+        await this.executeCommand('npm', ['run', 'chatgpt:next']);
         break;
       case 'a':
-        console.log('\n🚀 Running: npm run chatgpt:all');
-        // Could execute command here
+        await this.executeCommand('npm', ['run', 'chatgpt:all']);
         break;
       case 'g':
-        console.log('\n🚀 Running: npm run tasks:generate');
-        // Could execute command here
+        await this.executeCommand('npm', ['run', 'tasks:generate']);
         break;
       case 'p':
-        console.log('\n🚀 Running: npm run tasks:process');
-        // Could execute command here
+        await this.executeCommand('npm', ['run', 'tasks:process']);
         break;
       case 's':
-        console.log('\n🚀 Running: npm run ai:api');
-        // Could execute command here
+        await this.executeCommand('npm', ['run', 'ai:api']);
         break;
       case 'w':
-        console.log('\n🚀 Running: npm run ai:webhook');
-        // Could execute command here
+        await this.executeCommand('npm', ['run', 'ai:webhook']);
         break;
       case 'm':
-        console.log('\n🚀 Running: npm run monitor');
-        // Could execute command here
+        await this.executeCommand('npm', ['run', 'monitor']);
         break;
     }
   }
