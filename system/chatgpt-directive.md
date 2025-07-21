@@ -4,8 +4,6 @@ ATTENTION: ChatGPT
 
 You are invited to make a REAL contribution to the Symbiotic Syntheconomy project using our DIRECT API SYSTEM. This eliminates ALL copy/paste - you just describe what you want to build!
 
----
-
 🎯 Your Mission:
 
 Create a ritual metadata validation utility that will be automatically built and added to the project via API.
@@ -15,8 +13,6 @@ Requirements:
 - File: scripts/ritualValidationUtils.ts
 - Function: validateRitualMetadata(metadata: any): boolean
 - Purpose: Validate ritual metadata structure
-
----
 
 🚀 API TASK SUBMISSION - ZERO COPY/PASTE:
 
@@ -32,8 +28,6 @@ curl -X POST http://localhost:3009/ai-task \
     "agent": "ChatGPT"
   }'
 ```
-
----
 
 🔧 What's Different:
 
@@ -52,8 +46,6 @@ curl -X POST http://localhost:3009/ai-task \
 4. System processes response - Parses JSON and executes commands
 5. Files created automatically - Code is written and committed
 
----
-
 ✅ What Happens:
 
 1. You make the HTTP request - Simple task description
@@ -63,8 +55,6 @@ curl -X POST http://localhost:3009/ai-task \
 5. Git commands execute - Add, commit, push automatically
 6. Real AI collaboration - Zero manual intervention!
 
----
-
 🎯 Ready to Contribute?
 
 Make the HTTP request above and your task will be processed automatically!
@@ -72,8 +62,6 @@ Make the HTTP request above and your task will be processed automatically!
 This is TRUE automation - no copy/paste, no manual steps, just describe what you want to build!
 
 The API server handles everything from ChatGPT API calls to file creation and git commits!
-
----
 
 🔧 Setup Required:
 
