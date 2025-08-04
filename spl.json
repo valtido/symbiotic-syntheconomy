@@ -1,0 +1,10 @@
+{
+  "name": "KIKI Token",
+  "symbol": "KIKI",
+  "description": "KIKI is a utility token for bridging experiments.",
+  "image": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Kiki.png/240px-Kiki.png",
+  "decimals": 6,
+  "extensions": {
+    "website": "https://example.com"
+  }
+}
